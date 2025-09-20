@@ -1,0 +1,13 @@
+---
+# Handlers for Semaphore role
+
+- name: reload systemd
+  systemd:
+    daemon_reload: yes
+  become: true
+
+- name: restart semaphore
+  systemd:
+    name: semaphore-compose
+    state: restarted
+  become: true

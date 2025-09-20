@@ -1,0 +1,82 @@
+==========================================
+NETWORK SWITCH BACKUP SUMMARY REPORT
+==========================================
+
+Backup Information:
+  Date: {{ backup_summary.date }}
+  Time: {{ backup_summary.time }}
+  Location: {{ backup_summary.backup_location }}
+  Retention Policy: {{ backup_summary.retention_policy }}
+
+Device Summary:
+  Total Devices: {{ backup_summary.total_devices }}
+  Successful Backups: {{ backup_summary.successful_backups }}
+  Failed Backups: {{ backup_summary.failed_backups }}
+  Success Rate: {{ ((backup_summary.successful_backups / backup_summary.total_devices) * 100) | round(1) }}%
+
+Vendor Breakdown:
+{% if groups['arista_devices'] is defined %}
+  Arista EOS Switches: {{ groups['arista_devices'] | length }}
+{% for host in groups['arista_devices'] %}
+    - {{ host }} ({{ hostvars[host]['ansible_host'] }})
+{% endfor %}
+{% endif %}
+
+{% if groups['cisco_nxos_devices'] is defined %}
+  Cisco Nexus Switches: {{ groups['cisco_nxos_devices'] | length }}
+{% for host in groups['cisco_nxos_devices'] %}
+    - {{ host }} ({{ hostvars[host]['ansible_host'] }})
+{% endfor %}
+{% endif %}
+
+{% if groups['cisco_ios_devices'] is defined %}
+  Cisco Catalyst Switches: {{ groups['cisco_ios_devices'] | length }}
+{% for host in groups['cisco_ios_devices'] %}
+    - {{ host }} ({{ hostvars[host]['ansible_host'] }})
+{% endfor %}
+{% endif %}
+
+Backup Files Generated:
+{% if groups['arista_devices'] is defined %}
+  Arista Configurations:
+{% for host in groups['arista_devices'] %}
+    - {{ host }}_{{ backup_timestamp }}.cfg (running-config)
+    - {{ host }}_startup_{{ backup_timestamp }}.cfg (startup-config)
+    - {{ host }}_info_{{ backup_timestamp }}.txt (system info)
+{% endfor %}
+{% endif %}
+
+{% if groups['cisco_nxos_devices'] is defined %}
+  Nexus Configurations:
+{% for host in groups['cisco_nxos_devices'] %}
+    - {{ host }}_{{ backup_timestamp }}.cfg (running-config)
+    - {{ host }}_startup_{{ backup_timestamp }}.cfg (startup-config)
+    - {{ host }}_info_{{ backup_timestamp }}.txt (system info)
+{% endfor %}
+{% endif %}
+
+{% if groups['cisco_ios_devices'] is defined %}
+  Catalyst Configurations:
+{% for host in groups['cisco_ios_devices'] %}
+    - {{ host }}_{{ backup_timestamp }}.cfg (running-config)
+    - {{ host }}_startup_{{ backup_timestamp }}.cfg (startup-config)
+    - {{ host }}_info_{{ backup_timestamp }}.txt (system info)
+{% endfor %}
+{% endif %}
+
+{% if backup_summary.failed_backups > 0 %}
+FAILED BACKUPS:
+{% for host in ansible_failed_hosts | default([]) %}
+  - {{ host }}: Check {{ backup_summary.backup_location }}/logs/{{ host }}_FAILED.log
+{% endfor %}
+{% endif %}
+
+Next Steps:
+  1. Review backup files in {{ backup_summary.backup_location }}
+  2. Verify critical configurations are captured
+  3. Test restore procedures if needed
+  4. Update network documentation if devices changed
+
+==========================================
+Generated: {{ ansible_date_time.iso8601 }}
+==========================================

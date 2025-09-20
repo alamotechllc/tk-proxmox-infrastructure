@@ -1,0 +1,46 @@
+# Ansible Collections Requirements
+# Collections needed for Proxmox automation
+
+---
+collections:
+  # Core Proxmox collections
+  - name: community.proxmox
+    version: ">=4.0.0"
+  
+  # General system management
+  - name: community.general
+    version: ">=7.0.0"
+  
+  # Network management
+  - name: community.network
+    version: ">=5.0.0"
+  
+  # Security and hardening
+  - name: community.security
+    version: ">=2.0.0"
+  
+  # System utilities
+  - name: ansible.posix
+    version: ">=1.4.0"
+  
+  # Cloud utilities
+  - name: community.crypto
+    version: ">=2.0.0"
+  
+  # Monitoring and logging
+  - name: community.grafana
+    version: ">=1.6.0"
+  
+  # Backup and storage
+  - name: community.storage
+    version: ">=1.0.0"
+
+# Custom roles (if any)
+roles:
+  # Example custom role for Proxmox hardening
+  - name: proxmox_hardening
+    src: https://github.com/example/proxmox-hardening.git
+    version: main
+    # Uncomment if you have custom roles
+    # - name: custom_proxmox_role
+    #   src: ./roles/custom_proxmox_role

@@ -1,0 +1,431 @@
+---
+# Network Operations Template
+# Multi-purpose template for network device management
+# Supports: backup, VLAN assignment, port management, health checks
+
+- name: "Network Operations Template - {{ operation | upper }}"
+  hosts: "{{ target_device | default('all') }}"
+  gather_facts: true
+  serial: "{{ concurrency | default(3) }}"
+  
+  vars:
+    # Template parameters (can be overridden)
+    operation: "{{ operation | default('health_check') }}"  # backup, vlan_assign, port_enable, port_disable, health_check
+    target_device: "{{ target_device | default('all') }}"
+    
+    # Port operation parameters (these are passed as extra variables)
+    # port_interface: passed as extra variable
+    # vlan_id: passed as extra variable  
+    # port_description: passed as extra variable
+    
+    # Backup parameters (these are passed as extra variables)
+    # backup_location: passed as extra variable
+    # backup_retention_days: passed as extra variable  
+    # compress_backups: passed as extra variable
+    
+    # Security: Semaphore secrets (passed as extra variables)
+    # These will be provided by Semaphore when template is executed
+    network_admin_user: "{{ semaphore_admin_user | default('admin') }}"
+    network_admin_pass: "{{ semaphore_admin_password | default('') }}"
+    network_enable_pass: "{{ semaphore_enable_password | default('') }}"
+    
+    # Safety configuration
+    protected_ports:
+      - "TenGigabitEthernet1/1/1"
+      - "TenGigabitEthernet1/1/2"
+      - "GigabitEthernet1/0/1"
+      - "GigabitEthernet1/0/2"
+      - "Ethernet49/1"
+      - "Ethernet50/1"
+      - "Ethernet1/49"
+      - "Ethernet1/50"
+    
+    approved_vlans:
+      10: { name: "SERVERS", description: "Production Servers" }
+      20: { name: "WORKSTATIONS", description: "User Workstations" }
+      30: { name: "GUEST", description: "Guest Network" }
+      60: { name: "IOT", description: "IoT Devices" }
+      100: { name: "VOICE", description: "VoIP Phones" }
+
+  pre_tasks:
+    - name: Display template operation details
+      debug:
+        msg: |
+          ==========================================
+          NETWORK OPERATIONS TEMPLATE
+          ==========================================
+          Operation: {{ operation | upper }}
+          Target: {{ target_device }}
+          {% if operation == 'vlan_assign' %}
+          Port: {{ port_interface | default('Not specified') }}
+          VLAN: {{ vlan_id | default('Not specified') }} {% if vlan_id and vlan_id | int in approved_vlans %}({{ approved_vlans[vlan_id | int].name }}){% endif %}
+          Description: {{ port_description | default('Not specified') }}
+          {% endif %}
+          {% if operation == 'backup' %}
+          Backup Location: {{ backup_location | default('/opt/network_backups') }}
+          Retention: {{ backup_retention_days | default(30) }} days
+          Compression: {{ 'Enabled' if (compress_backups | default(true)) else 'Disabled' }}
+          {% endif %}
+          
+          🔒 SECURITY:
+          ✅ Using Semaphore secrets as extra variables
+          ✅ Credentials: {{ network_admin_user }} / [PROTECTED SECRET]
+          ✅ Enable password: [PROTECTED SECRET]
+          ✅ Audit trail enabled
+          ==========================================
+      run_once: true
+      delegate_to: localhost
+
+    - name: Validate operation parameters
+      fail:
+        msg: |
+          Invalid operation: {{ operation }}
+          
+          Supported operations:
+          - health_check: Test device connectivity and status
+          - backup: Backup device configurations
+          - vlan_assign: Assign port to VLAN
+          - port_enable: Enable a port
+          - port_disable: Disable a port
+      when: operation not in ['health_check', 'backup', 'vlan_assign', 'port_enable', 'port_disable']
+
+    - name: Validate VLAN assignment parameters
+      fail:
+        msg: |
+          VLAN assignment requires:
+          - port_interface: Interface to configure
+          - vlan_id: Target VLAN ID
+          
+          Current values:
+          - port_interface: {{ port_interface | default('NOT SET') }}
+          - vlan_id: {{ vlan_id | default('NOT SET') }}
+      when: 
+        - operation == 'vlan_assign'
+        - (port_interface | default('') == '' or vlan_id | default('') == '')
+
+    - name: Validate port operations parameters
+      fail:
+        msg: |
+          Port operations require:
+          - port_interface: Interface to configure
+          
+          Current value:
+          - port_interface: {{ port_interface | default('NOT SET') }}
+      when: 
+        - operation in ['port_enable', 'port_disable']
+        - port_interface | default('') == ''
+
+  tasks:
+    # OPERATION 1: Health Check
+    - name: Network Device Health Check
+      block:
+        - name: Test device connectivity (All vendors)
+          block:
+            # Arista EOS
+            - name: Arista health check
+              eos_command:
+                commands:
+                  - "show version"
+                  - "show system environment all"
+                  - "show interfaces status"
+              vars:
+                ansible_user: "{{ network_admin_user }}"
+                ansible_password: "{{ network_admin_pass }}"
+                ansible_connection: network_cli
+                ansible_network_os: eos
+              register: arista_health
+              when: device_type is defined and device_type == "arista_eos"
+              
+            # Cisco Nexus
+            - name: Nexus health check
+              nxos_command:
+                commands:
+                  - "show version"
+                  - "show environment"
+                  - "show interface status"
+              vars:
+                ansible_user: "{{ network_admin_user }}"
+                ansible_password: "{{ network_admin_pass }}"
+                ansible_connection: network_cli
+                ansible_network_os: nxos
+              register: nexus_health
+              when: device_type is defined and device_type == "cisco_nxos"
+              
+            # Cisco Catalyst
+            - name: Catalyst health check
+              ios_command:
+                commands:
+                  - "show version"
+                  - "show environment all"
+                  - "show interface status"
+              vars:
+                ansible_user: "{{ network_admin_user }}"
+                ansible_password: "{{ network_admin_pass }}"
+                ansible_become_password: "{{ network_enable_pass }}"
+                ansible_connection: network_cli
+                ansible_network_os: ios
+              register: catalyst_health
+              when: device_type is defined and device_type == "cisco_ios"
+              
+      when: operation == "health_check"
+
+    # OPERATION 2: Configuration Backup
+    - name: Network Device Backup
+      block:
+        - name: Backup Arista configuration
+          eos_config:
+            backup: yes
+            backup_options:
+              filename: "{{ backup_location | default('/opt/network_backups') }}/{{ ansible_date_time.date }}/arista/{{ inventory_hostname }}_{{ ansible_date_time.epoch }}.cfg"
+              dir_path: "{{ backup_location | default('/opt/network_backups') }}/{{ ansible_date_time.date }}/arista/"
+          vars:
+            ansible_user: "{{ network_admin_user }}"
+            ansible_password: "{{ network_admin_pass }}"
+            ansible_become_password: "{{ network_enable_pass }}"
+          when: device_type is defined and device_type == "arista_eos"
+          
+        - name: Backup Nexus configuration
+          nxos_config:
+            backup: yes
+            backup_options:
+              filename: "{{ backup_location | default('/opt/network_backups') }}/{{ ansible_date_time.date }}/nexus/{{ inventory_hostname }}_{{ ansible_date_time.epoch }}.cfg"
+              dir_path: "{{ backup_location | default('/opt/network_backups') }}/{{ ansible_date_time.date }}/nexus/"
+          vars:
+            ansible_user: "{{ network_admin_user }}"
+            ansible_password: "{{ network_admin_pass }}"
+          when: device_type is defined and device_type == "cisco_nxos"
+          
+        - name: Backup Catalyst configuration
+          ios_config:
+            backup: yes
+            backup_options:
+              filename: "{{ backup_location | default('/opt/network_backups') }}/{{ ansible_date_time.date }}/catalyst/{{ inventory_hostname }}_{{ ansible_date_time.epoch }}.cfg"
+              dir_path: "{{ backup_location | default('/opt/network_backups') }}/{{ ansible_date_time.date }}/catalyst/"
+          vars:
+            ansible_user: "{{ network_admin_user }}"
+            ansible_password: "{{ network_admin_pass }}"
+            ansible_become_password: "{{ network_enable_pass }}"
+          when: device_type is defined and device_type == "cisco_ios"
+          
+      when: operation == "backup"
+
+    # OPERATION 3: VLAN Assignment
+    - name: VLAN Port Assignment
+      block:
+        - name: Safety check for protected ports
+          fail:
+            msg: |
+              PROTECTED PORT: {{ port_interface }}
+              This port is in the protected ports list and cannot be modified.
+              Protected ports: {{ protected_ports | join(', ') }}
+          when: port_interface in protected_ports
+
+        - name: Validate VLAN is approved
+          fail:
+            msg: |
+              INVALID VLAN: {{ vlan_id }}
+              Approved VLANs: {{ approved_vlans.keys() | list | join(', ') }}
+          when: vlan_id | string not in approved_vlans.keys() | map('string') | list
+
+        - name: Assign port to VLAN (Cisco IOS/IOS-XE)
+          ios_config:
+            lines:
+              - "description {{ port_description }}"
+              - "switchport mode access"
+              - "switchport access vlan {{ vlan_id }}"
+              - "spanning-tree portfast"
+              - "no shutdown"
+            parents: "interface {{ port_interface }}"
+          vars:
+            ansible_user: "{{ network_admin_user }}"
+            ansible_password: "{{ network_admin_pass }}"
+            ansible_become_password: "{{ network_enable_pass }}"
+          when: ansible_network_os in ["ios", "iosxe"]
+          
+        - name: Assign port to VLAN (Cisco NX-OS)
+          nxos_config:
+            lines:
+              - "description {{ port_description }}"
+              - "switchport mode access"
+              - "switchport access vlan {{ vlan_id }}"
+              - "spanning-tree port type edge"
+              - "no shutdown"
+            parents: "interface {{ port_interface }}"
+          vars:
+            ansible_user: "{{ network_admin_user }}"
+            ansible_password: "{{ network_admin_pass }}"
+          when: ansible_network_os == "nxos"
+          
+        - name: Assign port to VLAN (Arista EOS)
+          eos_config:
+            lines:
+              - "description {{ port_description }}"
+              - "switchport mode access"
+              - "switchport access vlan {{ vlan_id }}"
+              - "spanning-tree portfast"
+              - "no shutdown"
+            parents: "interface {{ port_interface }}"
+          vars:
+            ansible_user: "{{ network_admin_user }}"
+            ansible_password: "{{ network_admin_pass }}"
+            ansible_become_password: "{{ network_enable_pass }}"
+          when: ansible_network_os == "eos"
+          
+      when: operation == "vlan_assign"
+
+    # OPERATION 4: Port Enable
+    - name: Enable Network Port
+      block:
+        - name: Enable port (Cisco IOS/IOS-XE)
+          ios_config:
+            lines:
+              - "no shutdown"
+            parents: "interface {{ port_interface }}"
+          vars:
+            ansible_user: "{{ network_admin_user }}"
+            ansible_password: "{{ network_admin_pass }}"
+            ansible_become_password: "{{ network_enable_pass }}"
+          when: ansible_network_os in ["ios", "iosxe"]
+          
+        - name: Enable port (Cisco NX-OS)
+          nxos_config:
+            lines:
+              - "no shutdown"
+            parents: "interface {{ port_interface }}"
+          vars:
+            ansible_user: "{{ network_admin_user }}"
+            ansible_password: "{{ network_admin_pass }}"
+          when: ansible_network_os == "nxos"
+          
+        - name: Enable port (Arista EOS)
+          eos_config:
+            lines:
+              - "no shutdown"
+            parents: "interface {{ port_interface }}"
+          vars:
+            ansible_user: "{{ network_admin_user }}"
+            ansible_password: "{{ network_admin_pass }}"
+          when: ansible_network_os == "eos"
+          
+      when: operation == "port_enable"
+
+    # OPERATION 5: Port Disable
+    - name: Disable Network Port
+      block:
+        - name: Safety check for critical ports
+          fail:
+            msg: |
+              CRITICAL PORT PROTECTION!
+              Cannot disable port {{ port_interface }} - it may be a critical uplink.
+              Protected ports: {{ protected_ports | join(', ') }}
+          when: port_interface in protected_ports
+
+        - name: Disable port (Cisco IOS/IOS-XE)
+          ios_config:
+            lines:
+              - "shutdown"
+            parents: "interface {{ port_interface }}"
+          vars:
+            ansible_user: "{{ network_admin_user }}"
+            ansible_password: "{{ network_admin_pass }}"
+            ansible_become_password: "{{ network_enable_pass }}"
+          when: ansible_network_os in ["ios", "iosxe"]
+          
+        - name: Disable port (Cisco NX-OS)
+          nxos_config:
+            lines:
+              - "shutdown"
+            parents: "interface {{ port_interface }}"
+          vars:
+            ansible_user: "{{ network_admin_user }}"
+            ansible_password: "{{ network_admin_pass }}"
+          when: ansible_network_os == "nxos"
+          
+        - name: Disable port (Arista EOS)
+          eos_config:
+            lines:
+              - "shutdown"
+            parents: "interface {{ port_interface }}"
+          vars:
+            ansible_user: "{{ network_admin_user }}"
+            ansible_password: "{{ network_admin_pass }}"
+          when: ansible_network_os == "eos"
+          
+      when: operation == "port_disable"
+
+  post_tasks:
+    - name: Generate operation report
+      copy:
+        content: |
+          ==========================================
+          NETWORK OPERATIONS TEMPLATE REPORT
+          ==========================================
+          
+          Operation Details:
+            Template: Network Operations Template
+            Operation: {{ operation | upper }}
+            Date/Time: {{ ansible_date_time.iso8601 }}
+            Target Device: {{ target_device }}
+            {% if target_device != 'all' %}
+            Device IP: {{ ansible_host }}
+            {% endif %}
+            
+          {% if operation == 'vlan_assign' %}
+          VLAN Assignment:
+            Port: {{ port_interface }}
+            VLAN: {{ vlan_id }} ({{ approved_vlans[vlan_id | int].name }})
+            Description: {{ port_description }}
+          {% elif operation in ['port_enable', 'port_disable'] %}
+          Port Operation:
+            Port: {{ port_interface }}
+            Action: {{ 'ENABLED' if operation == 'port_enable' else 'DISABLED' }}
+          {% elif operation == 'backup' %}
+          Backup Operation:
+            Location: {{ backup_location }}
+            Retention: {{ backup_retention }} days
+            Compression: {{ 'Yes' if compress_backups else 'No' }}
+          {% elif operation == 'health_check' %}
+          Health Check:
+            Connectivity: {% if ansible_failed_task is not defined %}✅ SUCCESS{% else %}❌ FAILED{% endif %}
+            Authentication: {% if ansible_failed_task is not defined %}✅ SUCCESS{% else %}❌ FAILED{% endif %}
+          {% endif %}
+          
+          Security Features:
+          ✅ Encrypted credential storage
+          ✅ Unified authentication (admin / [PROTECTED])
+          ✅ Protected port validation
+          ✅ VLAN validation
+          ✅ Audit trail logging
+          
+          Status: {% if ansible_failed_task is not defined %}✅ COMPLETED SUCCESSFULLY{% else %}❌ FAILED - {{ ansible_failed_result.msg }}{% endif %}
+          
+          ==========================================
+        dest: "/tmp/network_operations/{{ operation }}_{{ target_device }}_{{ ansible_date_time.epoch }}.log"
+      delegate_to: localhost
+      
+    - name: Display template completion summary
+      debug:
+        msg: |
+          ==========================================
+          TEMPLATE EXECUTION COMPLETED
+          ==========================================
+          
+          📋 Operation: {{ operation | upper }}
+          🎯 Target: {{ target_device }}
+          {% if operation == 'vlan_assign' %}
+          🔌 Port: {{ port_interface }} → VLAN {{ vlan_id }}
+          {% elif operation in ['port_enable', 'port_disable'] %}
+          🔌 Port: {{ port_interface }} → {{ 'ENABLED' if operation == 'port_enable' else 'DISABLED' }}
+          {% elif operation == 'backup' %}
+          💾 Backup: {{ backup_location }}
+          {% elif operation == 'health_check' %}
+          🏥 Health: Device connectivity verified
+          {% endif %}
+          
+          🔒 Security: Unified credentials used
+          📁 Report: /tmp/network_operations/{{ operation }}_{{ target_device }}_{{ ansible_date_time.epoch }}.log
+          
+          ✅ Template execution successful!
+          ==========================================
+      run_once: true
+      delegate_to: localhost

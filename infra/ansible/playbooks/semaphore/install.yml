@@ -1,0 +1,77 @@
+---
+# Ansible Semaphore Installation Playbook
+# Deploys Semaphore with Docker Compose to control node VM
+
+- name: Deploy Ansible Semaphore to Control Node VM
+  hosts: control_nodes
+  become: true
+  gather_facts: true
+  
+  vars:
+    # Override these in inventory or with --extra-vars
+    control_node_host: ansible-control
+  
+  pre_tasks:
+    - name: Verify VM connectivity
+      ping:
+      
+    - name: Check if running on Ubuntu/Debian
+      fail:
+        msg: "This playbook requires Ubuntu or Debian"
+      when: ansible_os_family != "Debian"
+      
+    - name: Display deployment information
+      debug:
+        msg: |
+          ==========================================
+          Deploying Ansible Semaphore
+          ==========================================
+          Target VM: {{ inventory_hostname }}
+          VM IP: {{ ansible_host }}
+          Semaphore URL: http://{{ ansible_host }}:3000
+          Admin User: {{ semaphore_admin_user }}
+          Admin Email: {{ semaphore_admin_email }}
+          Data Path: /opt/semaphore/
+          ==========================================
+
+  roles:
+    - role: ../../roles/semaphore
+      vars:
+        ansible_user: ubuntuadmin
+    
+  post_tasks:
+    - name: Verify Semaphore is running
+      uri:
+        url: "http://{{ ansible_host }}:3000/api/ping"
+        method: GET
+        timeout: 30
+      register: semaphore_ping
+      retries: 5
+      delay: 10
+      until: semaphore_ping.status == 200
+      ignore_errors: yes
+      
+    - name: Display final status
+      debug:
+        msg: |
+          ==========================================
+          Deployment {{ 'SUCCESSFUL' if semaphore_ping.status == 200 else 'FAILED' }}!
+          ==========================================
+          {% if semaphore_ping.status == 200 %}
+          ✅ Semaphore is running and accessible
+          🌐 Access: http://{{ ansible_host }}:3000
+          👤 Login: {{ semaphore_admin_user }}
+          📧 Email: {{ semaphore_admin_email }}
+          🔑 Password: {{ semaphore_admin_password }}
+          
+          🔧 Management Commands:
+          sudo systemctl status semaphore-compose
+          sudo systemctl restart semaphore-compose
+          docker compose -f /opt/semaphore/docker-compose.yml ps
+          docker compose -f /opt/semaphore/docker-compose.yml logs
+          {% else %}
+          ❌ Semaphore deployment failed or not accessible
+          🔍 Check logs: sudo journalctl -u semaphore-compose -f
+          🔍 Check containers: docker compose -f /opt/semaphore/docker-compose.yml ps
+          {% endif %}
+          ==========================================
