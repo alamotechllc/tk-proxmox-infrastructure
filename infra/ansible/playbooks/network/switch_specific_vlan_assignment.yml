@@ -14,7 +14,7 @@
       arista_core:
         name: "Arista Core Switch (tks-sw-arista-core-1)"
         ip: "172.23.7.10"
-        safe_ports: ["Ethernet1-48"]  # Access ports only
+        safe_ports: ["Ethernet1/1", "Ethernet1/2", "Ethernet1/3", "Ethernet1/4", "Ethernet1/5", "Ethernet1/6", "Ethernet1/7", "Ethernet1/8", "Ethernet1/9", "Ethernet1/10", "Ethernet1/11", "Ethernet1/12", "Ethernet1/13", "Ethernet1/14", "Ethernet1/15", "Ethernet1/16", "Ethernet1/17", "Ethernet1/18", "Ethernet1/19", "Ethernet1/20", "Ethernet1/21", "Ethernet1/22", "Ethernet1/23", "Ethernet1/24", "Ethernet1/25", "Ethernet1/26", "Ethernet1/27", "Ethernet1/28", "Ethernet1/29", "Ethernet1/30", "Ethernet1/31", "Ethernet1/32", "Ethernet1/33", "Ethernet1/34", "Ethernet1/35", "Ethernet1/36", "Ethernet1/37", "Ethernet1/38", "Ethernet1/39", "Ethernet1/40", "Ethernet1/41", "Ethernet1/42", "Ethernet1/43", "Ethernet1/44", "Ethernet1/45", "Ethernet1/46", "Ethernet1/47", "Ethernet1/48"]
         protected_ports: ["Ethernet49/1", "Ethernet50/1", "Management1"]
         vlan_assignments:
           2: "SERVERS - High-speed server connections"
@@ -112,19 +112,16 @@
     - name: Check if port is in safe range
       fail:
         msg: "Port '{{ target_port }}' is not in safe port range for {{ switch_name }}"
-      when: not (target_port in switch_config.safe_ports or 
-                 any(target_port.startswith(port_range.split('-')[0]) and 
-                     target_port <= port_range.split('-')[1] if '-' in port_range else False 
-                     for port_range in switch_config.safe_ports))
+      when: target_port not in switch_config.safe_ports
 
     - name: Validate VLAN is approved for this switch
       fail:
         msg: "VLAN {{ target_vlan }} is not approved for {{ switch_name }}"
-      when: target_vlan not in switch_config.vlan_assignments
+      when: target_vlan | int not in switch_config.vlan_assignments
 
     - name: Display VLAN information
       debug:
-        msg: "VLAN {{ target_vlan }}: {{ switch_config.vlan_assignments[target_vlan] }}"
+        msg: "VLAN {{ target_vlan }}: {{ switch_config.vlan_assignments[target_vlan | int] }}"
 
   tasks:
     - name: Simulate VLAN assignment on Arista Core Switch
@@ -137,7 +134,7 @@
               Switch: {{ switch_config.name }}
               IP: {{ switch_config.ip }}
               Port: {{ target_port }}
-              VLAN: {{ target_vlan }} ({{ switch_config.vlan_assignments[target_vlan] }})
+              VLAN: {{ target_vlan }} ({{ switch_config.vlan_assignments[target_vlan | int] }})
               Description: {{ port_description }}
               
               Commands that would be executed:
@@ -161,7 +158,7 @@
               Switch: {{ switch_config.name }}
               IP: {{ switch_config.ip }}
               Port: {{ target_port }}
-              VLAN: {{ target_vlan }} ({{ switch_config.vlan_assignments[target_vlan] }})
+              VLAN: {{ target_vlan }} ({{ switch_config.vlan_assignments[target_vlan | int] }})
               Description: {{ port_description }}
               
               Commands that would be executed:
@@ -184,7 +181,7 @@
               Switch: {{ switch_config.name }}
               IP: {{ switch_config.ip }}
               Port: {{ target_port }}
-              VLAN: {{ target_vlan }} ({{ switch_config.vlan_assignments[target_vlan] }})
+              VLAN: {{ target_vlan }} ({{ switch_config.vlan_assignments[target_vlan | int] }})
               Description: {{ port_description }}
               
               Commands that would be executed:
