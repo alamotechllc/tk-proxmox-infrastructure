@@ -1,0 +1,78 @@
+{
+  "template_name": "List Switch Interfaces",
+  "template_description": "Dynamically displays available interfaces based on selected switch",
+  "playbook": "playbooks/network/list_switch_interfaces.yml",
+  "inventory_id": 7,
+  "repository_id": 1,
+  "environment_id": 5,
+  "app": "ansible",
+  "survey_variables": [
+    {
+      "name": "switch_name",
+      "title": "Switch to Query",
+      "required": true,
+      "type": "enum",
+      "description": "Select the switch to list interfaces for",
+      "values": [
+        {
+          "name": "Arista Core Switch",
+          "value": "arista_core"
+        },
+        {
+          "name": "Cisco Nexus Switch", 
+          "value": "cisco_nexus"
+        },
+        {
+          "name": "Access Layer Switch",
+          "value": "access_switch"
+        }
+      ],
+      "default_value": "arista_core"
+    }
+  ],
+  "manual_setup_instructions": {
+    "step_1": "Go to Semaphore UI → Templates → Create Template",
+    "step_2": "Fill in the following information:",
+    "template_settings": {
+      "name": "List Switch Interfaces",
+      "playbook": "playbooks/network/list_switch_interfaces.yml",
+      "inventory": "Core Network Infrastructure (Secure)",
+      "repository": "Local",
+      "environment": "Default"
+    },
+    "step_3": "In Advanced Options → Survey Variables, add:",
+    "survey_variable": {
+      "variable_name": "switch_name",
+      "variable_type": "Multiple Choice",
+      "description": "Select the switch to list interfaces for",
+      "required": true,
+      "default_value": "arista_core",
+      "choices": [
+        "arista_core - Arista Core Switch",
+        "cisco_nexus - Cisco Nexus Switch",
+        "access_switch - Access Layer Switch"
+      ]
+    },
+    "step_4": "Save the template",
+    "step_5": "Test by running with different switch selections"
+  },
+  "expected_output": {
+    "arista_core": "Shows 48 access ports + 2 high-speed ports + management ports",
+    "cisco_nexus": "Shows 48 access ports + gaming zone + trunk ports + management",
+    "access_switch": "Shows 7 access ports + 1 uplink port with current assignments"
+  },
+  "integration_with_vlan_assignment": {
+    "workflow": [
+      "1. Run 'List Switch Interfaces' to see available ports",
+      "2. Note the exact port names (e.g., Ethernet1/10)",
+      "3. Run 'Switch-Specific VLAN Assignment' with the port names",
+      "4. Verify the assignment was successful"
+    ],
+    "example": {
+      "step_1": "List interfaces: switch_name=arista_core",
+      "step_2": "Choose port: Ethernet1/10 (from the list)",
+      "step_3": "Assign VLAN: switch_name=arista_core, port_interface=Ethernet1/10, vlan_id=3",
+      "result": "Port successfully assigned to VLAN 3"
+    }
+  }
+}
