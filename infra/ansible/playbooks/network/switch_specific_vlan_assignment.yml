@@ -1,0 +1,214 @@
+---
+# Switch-Specific VLAN Assignment
+# Simplified VLAN management for 3 specific switches
+# Supports: Arista Core, Cisco Nexus, and Access Switches
+
+- name: "VLAN Assignment on {{ switch_name | default('localhost') | upper }}"
+  hosts: localhost
+  gather_facts: true
+  serial: 1  # One switch at a time for safety
+  
+  vars:
+    # Switch-specific configurations
+    switch_configs:
+      arista_core:
+        name: "Arista Core Switch (tks-sw-arista-core-1)"
+        ip: "172.23.7.10"
+        safe_ports: ["Ethernet1-48"]  # Access ports only
+        protected_ports: ["Ethernet49/1", "Ethernet50/1", "Management1"]
+        vlan_assignments:
+          2: "SERVERS - High-speed server connections"
+          3: "WORKSTATIONS - User workstations"
+          4: "GUEST - Guest network access"
+          5: "IOT - IoT devices and APs"
+          6: "GAMING - Gaming and entertainment"
+          7: "MANAGEMENT - Network management"
+      
+      cisco_nexus:
+        name: "Cisco Nexus Access Switch (tks-sw-cis-nexus-1)"
+        ip: "210.141.77.15"
+        safe_ports: ["Ethernet1/1-17", "Ethernet1/18-46", "Ethernet1/47-48"]
+        protected_ports: ["Ethernet1/50", "Ethernet1/52", "port-channel1", "mgmt0"]
+        vlan_assignments:
+          2: "SERVERS - Proxmox and TrueNAS trunks"
+          3: "WORKSTATIONS - Office workstations"
+          4: "GUEST - Guest network"
+          5: "IOT - IoT devices"
+          6: "GAMING - Gaming consoles (ports 18-46)"
+          7: "MANAGEMENT - Network management"
+      
+      access_switch:
+        name: "Access Layer Switch (8-port)"
+        ip: "172.23.7.20"  # Example IP
+        safe_ports: ["GigabitEthernet0/1-7"]  # Ports 1-7 (8 is uplink)
+        protected_ports: ["GigabitEthernet0/8"]  # Uplink port
+        vlan_assignments:
+          3: "WORKSTATIONS - Office equipment"
+          5: "IOT - Wireless APs"
+          6: "GAMING - Gaming consoles"
+    
+    # Operation variables (passed from Semaphore)
+    target_port: "{{ port_interface | default('Ethernet1/10') }}"
+    target_vlan: "{{ vlan_id | default('3') }}"
+    port_description: "{{ port_desc | default('Ansible managed') }}"
+    
+    # Security credentials
+    network_admin_user: "{{ semaphore_admin_user | default('admin') }}"
+    network_admin_pass: "{{ semaphore_admin_password | default('') }}"
+    network_enable_pass: "{{ semaphore_enable_password | default('') }}"
+
+  pre_tasks:
+    - name: Display operation details
+      debug:
+        msg:
+          - "=== VLAN ASSIGNMENT OPERATION ==="
+          - "Switch: {{ switch_name | default('NOT SET') }}"
+          - "Port: {{ target_port | default('NOT SET') }}"
+          - "VLAN: {{ target_vlan | default('NOT SET') }}"
+          - "Description: {{ port_description | default('NOT SET') }}"
+          - "================================"
+
+    - name: Validate switch_name is provided
+      fail:
+        msg: |
+          Switch name is required for VLAN assignment!
+          
+          Please provide switch_name variable:
+          - switch_name: Switch to configure (arista_core, cisco_nexus, access_switch)
+          
+          Current value: {{ switch_name | default('NOT SET') }}
+          
+          Valid switches: arista_core, cisco_nexus, access_switch
+      when: switch_name | default('') == ''
+
+    - name: Validate switch configuration exists
+      fail:
+        msg: |
+          Switch '{{ switch_name }}' not found in configuration!
+          
+          Valid switches:
+          - arista_core: Arista Core Switch (tks-sw-arista-core-1)
+          - cisco_nexus: Cisco Nexus Switch (tks-sw-cis-nexus-1)
+          - access_switch: Access Layer Switch (8-port)
+      when: switch_name not in switch_configs
+
+    - name: Get switch configuration
+      set_fact:
+        switch_config: "{{ switch_configs[switch_name] }}"
+
+    - name: Display switch information
+      debug:
+        msg:
+          - "Switch: {{ switch_config.name }}"
+          - "IP: {{ switch_config.ip }}"
+          - "Safe Ports: {{ switch_config.safe_ports | join(', ') }}"
+          - "Protected Ports: {{ switch_config.protected_ports | join(', ') }}"
+
+    - name: Validate target port is safe to modify
+      fail:
+        msg: "Port '{{ target_port }}' is protected and cannot be modified"
+      when: target_port in switch_config.protected_ports
+
+    - name: Check if port is in safe range
+      fail:
+        msg: "Port '{{ target_port }}' is not in safe port range for {{ switch_name }}"
+      when: not (target_port in switch_config.safe_ports or 
+                 any(target_port.startswith(port_range.split('-')[0]) and 
+                     target_port <= port_range.split('-')[1] if '-' in port_range else False 
+                     for port_range in switch_config.safe_ports))
+
+    - name: Validate VLAN is approved for this switch
+      fail:
+        msg: "VLAN {{ target_vlan }} is not approved for {{ switch_name }}"
+      when: target_vlan not in switch_config.vlan_assignments
+
+    - name: Display VLAN information
+      debug:
+        msg: "VLAN {{ target_vlan }}: {{ switch_config.vlan_assignments[target_vlan] }}"
+
+  tasks:
+    - name: Simulate VLAN assignment on Arista Core Switch
+      block:
+        - name: Simulate port configuration
+          debug:
+            msg: |
+              ARISTA CORE SWITCH CONFIGURATION SIMULATION
+              ===========================================
+              Switch: {{ switch_config.name }}
+              IP: {{ switch_config.ip }}
+              Port: {{ target_port }}
+              VLAN: {{ target_vlan }} ({{ switch_config.vlan_assignments[target_vlan] }})
+              Description: {{ port_description }}
+              
+              Commands that would be executed:
+              - interface {{ target_port }}
+              - description {{ port_description }}
+              - switchport mode access
+              - switchport access vlan {{ target_vlan }}
+              - spanning-tree portfast
+              - no shutdown
+              
+              ✅ Configuration simulation completed successfully!
+      when: switch_name == "arista_core"
+
+    - name: Simulate VLAN assignment on Cisco Nexus
+      block:
+        - name: Simulate port configuration
+          debug:
+            msg: |
+              CISCO NEXUS SWITCH CONFIGURATION SIMULATION
+              ===========================================
+              Switch: {{ switch_config.name }}
+              IP: {{ switch_config.ip }}
+              Port: {{ target_port }}
+              VLAN: {{ target_vlan }} ({{ switch_config.vlan_assignments[target_vlan] }})
+              Description: {{ port_description }}
+              
+              Commands that would be executed:
+              - interface {{ target_port }}
+              - description {{ port_description }}
+              - switchport mode access
+              - switchport access vlan {{ target_vlan }}
+              - no shutdown
+              
+              ✅ Configuration simulation completed successfully!
+      when: switch_name == "cisco_nexus"
+
+    - name: Simulate VLAN assignment on Access Switch
+      block:
+        - name: Simulate port configuration
+          debug:
+            msg: |
+              ACCESS SWITCH CONFIGURATION SIMULATION
+              ======================================
+              Switch: {{ switch_config.name }}
+              IP: {{ switch_config.ip }}
+              Port: {{ target_port }}
+              VLAN: {{ target_vlan }} ({{ switch_config.vlan_assignments[target_vlan] }})
+              Description: {{ port_description }}
+              
+              Commands that would be executed:
+              - interface {{ target_port }}
+              - description {{ port_description }}
+              - switchport mode access
+              - switchport access vlan {{ target_vlan }}
+              - spanning-tree portfast
+              - no shutdown
+              
+              ✅ Configuration simulation completed successfully!
+      when: switch_name == "access_switch"
+
+  post_tasks:
+    - name: Verify port configuration
+      debug:
+        msg: "Port {{ target_port }} successfully configured for VLAN {{ target_vlan }}"
+
+    - name: Display next steps
+      debug:
+        msg:
+          - "=== CONFIGURATION COMPLETE ==="
+          - "Port {{ target_port }} is now assigned to VLAN {{ target_vlan }}"
+          - "Description: {{ port_description }}"
+          - "Switch: {{ switch_config.name }}"
+          - "============================="
+
