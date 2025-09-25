@@ -60,6 +60,11 @@ copy_inventory() {
 # Create base directory structure
 mkdir -p "${SEMAPHORE_BASE}"
 
+# Create git repository structure (Semaphore looks here for playbooks)
+echo -e "${YELLOW}📁 Setting up git repository structure...${NC}"
+mkdir -p "${SEMAPHORE_BASE}/../playbooks/network"
+mkdir -p "${SEMAPHORE_BASE}/../inventories/prod"
+
 # Copy inventory files
 copy_inventory "infra/ansible/inventories/network_switches.yml" "7"
 copy_inventory "infra/ansible/inventories/prod/hosts.yml" "7_prod"
@@ -68,13 +73,44 @@ copy_inventory "infra/ansible/inventories/prod/hosts.yml" "7_prod"
 copy_playbook_to_template "14" "infra/ansible/playbooks/network/switch_specific_vlan_assignment.yml"
 copy_playbook_to_template "22" "infra/ansible/playbooks/network/list_switch_interfaces.yml"
 
+# Copy playbooks to git repository structure (where Semaphore actually looks)
+echo -e "${YELLOW}📁 Copying playbooks to git repository...${NC}"
+if [ -f "${PROJECT_ROOT}/infra/ansible/playbooks/network/switch_specific_vlan_assignment.yml" ]; then
+    cp "${PROJECT_ROOT}/infra/ansible/playbooks/network/switch_specific_vlan_assignment.yml" "${SEMAPHORE_BASE}/../playbooks/network/"
+    echo -e "${GREEN}  ✅ Copied switch_specific_vlan_assignment.yml to git repo${NC}"
+fi
+
+if [ -f "${PROJECT_ROOT}/infra/ansible/playbooks/network/list_switch_interfaces.yml" ]; then
+    cp "${PROJECT_ROOT}/infra/ansible/playbooks/network/list_switch_interfaces.yml" "${SEMAPHORE_BASE}/../playbooks/network/"
+    echo -e "${GREEN}  ✅ Copied list_switch_interfaces.yml to git repo${NC}"
+fi
+
+# Copy inventories to git repository structure
+echo -e "${YELLOW}📋 Copying inventories to git repository...${NC}"
+if [ -f "${PROJECT_ROOT}/infra/ansible/inventories/network_switches.yml" ]; then
+    cp "${PROJECT_ROOT}/infra/ansible/inventories/network_switches.yml" "${SEMAPHORE_BASE}/../inventories/"
+    echo -e "${GREEN}  ✅ Copied network_switches.yml to git repo${NC}"
+fi
+
+if [ -f "${PROJECT_ROOT}/infra/ansible/inventories/prod/hosts.yml" ]; then
+    cp "${PROJECT_ROOT}/infra/ansible/inventories/prod/hosts.yml" "${SEMAPHORE_BASE}/../inventories/prod/"
+    echo -e "${GREEN}  ✅ Copied hosts.yml to git repo${NC}"
+fi
+
 echo -e "${GREEN}🎉 Semaphore files setup complete!${NC}"
 echo -e "${BLUE}📋 Directory structure created:${NC}"
 echo -e "  ${SEMAPHORE_BASE}/"
 echo -e "  ├── inventory_7"
 echo -e "  ├── inventory_7_prod"
 echo -e "  ├── repository_1_template_14/playbooks/network/"
-echo -e "  └── repository_1_template_22/playbooks/network/"
+echo -e "  ├── repository_1_template_22/playbooks/network/"
+echo -e "  └── ../ (Git Repository)"
+echo -e "      ├── playbooks/network/"
+echo -e "      │   ├── list_switch_interfaces.yml"
+echo -e "      │   └── switch_specific_vlan_assignment.yml"
+echo -e "      └── inventories/"
+echo -e "          ├── network_switches.yml"
+echo -e "          └── prod/hosts.yml"
 
 echo -e "${YELLOW}💡 Templates ready for use:${NC}"
 echo -e "  Template 14: Switch-Specific VLAN Assignment"
