@@ -1,0 +1,408 @@
+---
+# List Switch Interfaces Template
+# Dynamically displays available interfaces based on selected switch
+# Helps users choose the correct port for VLAN assignment
+
+- name: "List Available Interfaces for {{ switch_name | default('selected switch') | upper }}"
+  hosts: localhost
+  gather_facts: true
+  
+  vars:
+    # Switch-specific interface configurations
+    switch_interface_configs:
+      arista_core:
+        name: "Arista Core Switch (tks-sw-arista-core-1)"
+        ip: "172.23.7.10"
+        model: "DCS-7050T-64"
+        safe_ports:
+          access_ports:
+            - "Ethernet1/1"
+            - "Ethernet1/2"
+            - "Ethernet1/3"
+            - "Ethernet1/4"
+            - "Ethernet1/5"
+            - "Ethernet1/6"
+            - "Ethernet1/7"
+            - "Ethernet1/8"
+            - "Ethernet1/9"
+            - "Ethernet1/10"
+            - "Ethernet1/11"
+            - "Ethernet1/12"
+            - "Ethernet1/13"
+            - "Ethernet1/14"
+            - "Ethernet1/15"
+            - "Ethernet1/16"
+            - "Ethernet1/17"
+            - "Ethernet1/18"
+            - "Ethernet1/19"
+            - "Ethernet1/20"
+            - "Ethernet1/21"
+            - "Ethernet1/22"
+            - "Ethernet1/23"
+            - "Ethernet1/24"
+            - "Ethernet1/25"
+            - "Ethernet1/26"
+            - "Ethernet1/27"
+            - "Ethernet1/28"
+            - "Ethernet1/29"
+            - "Ethernet1/30"
+            - "Ethernet1/31"
+            - "Ethernet1/32"
+            - "Ethernet1/33"
+            - "Ethernet1/34"
+            - "Ethernet1/35"
+            - "Ethernet1/36"
+            - "Ethernet1/37"
+            - "Ethernet1/38"
+            - "Ethernet1/39"
+            - "Ethernet1/40"
+            - "Ethernet1/41"
+            - "Ethernet1/42"
+            - "Ethernet1/43"
+            - "Ethernet1/44"
+            - "Ethernet1/45"
+            - "Ethernet1/46"
+            - "Ethernet1/47"
+            - "Ethernet1/48"
+          high_speed_ports:
+            - "Ethernet49/1 (10GbE - Protected)"
+            - "Ethernet50/1 (10GbE - Protected)"
+          management_ports:
+            - "Management1 (Protected)"
+        port_descriptions:
+          "Ethernet1/1": "Available - Access Port"
+          "Ethernet1/2": "Available - Access Port"
+          "Ethernet1/3": "Available - Access Port"
+          "Ethernet1/4": "Available - Access Port"
+          "Ethernet1/5": "Available - Access Port"
+          "Ethernet1/6": "Available - Access Port"
+          "Ethernet1/7": "Available - Access Port"
+          "Ethernet1/8": "Available - Access Port"
+          "Ethernet1/9": "Available - Access Port"
+          "Ethernet1/10": "Available - Access Port"
+          "Ethernet1/11": "Available - Access Port"
+          "Ethernet1/12": "Available - Access Port"
+          "Ethernet1/13": "Available - Access Port"
+          "Ethernet1/14": "Available - Access Port"
+          "Ethernet1/15": "Available - Access Port"
+          "Ethernet1/16": "Available - Access Port"
+          "Ethernet1/17": "Available - Access Port"
+          "Ethernet1/18": "Available - Access Port"
+          "Ethernet1/19": "Available - Access Port"
+          "Ethernet1/20": "Available - Access Port"
+          "Ethernet1/21": "Available - Access Port"
+          "Ethernet1/22": "Available - Access Port"
+          "Ethernet1/23": "Available - Access Port"
+          "Ethernet1/24": "Available - Access Port"
+          "Ethernet1/25": "Available - Access Port"
+          "Ethernet1/26": "Available - Access Port"
+          "Ethernet1/27": "Available - Access Port"
+          "Ethernet1/28": "Available - Access Port"
+          "Ethernet1/29": "Available - Access Port"
+          "Ethernet1/30": "Available - Access Port"
+          "Ethernet1/31": "Available - Access Port"
+          "Ethernet1/32": "Available - Access Port"
+          "Ethernet1/33": "Available - Access Port"
+          "Ethernet1/34": "Available - Access Port"
+          "Ethernet1/35": "Available - Access Port"
+          "Ethernet1/36": "Available - Access Port"
+          "Ethernet1/37": "Available - Access Port"
+          "Ethernet1/38": "Available - Access Port"
+          "Ethernet1/39": "Available - Access Port"
+          "Ethernet1/40": "Available - Access Port"
+          "Ethernet1/41": "Available - Access Port"
+          "Ethernet1/42": "Available - Access Port"
+          "Ethernet1/43": "Available - Access Port"
+          "Ethernet1/44": "Available - Access Port"
+          "Ethernet1/45": "Available - Access Port"
+          "Ethernet1/46": "Available - Access Port"
+          "Ethernet1/47": "Available - Access Port"
+          "Ethernet1/48": "Available - Access Port"
+
+      cisco_nexus:
+        name: "Cisco Nexus Access Switch (tks-sw-cis-nexus-1)"
+        ip: "210.141.77.15"
+        model: "N9K-C93180YC-EX"
+        safe_ports:
+          access_ports:
+            - "Ethernet1/1"
+            - "Ethernet1/2"
+            - "Ethernet1/3"
+            - "Ethernet1/4"
+            - "Ethernet1/5"
+            - "Ethernet1/6"
+            - "Ethernet1/7"
+            - "Ethernet1/8"
+            - "Ethernet1/9"
+            - "Ethernet1/10"
+            - "Ethernet1/11"
+            - "Ethernet1/12"
+            - "Ethernet1/13"
+            - "Ethernet1/14"
+            - "Ethernet1/15"
+            - "Ethernet1/16"
+            - "Ethernet1/17"
+            - "Ethernet1/18"
+            - "Ethernet1/19"
+            - "Ethernet1/20"
+            - "Ethernet1/21"
+            - "Ethernet1/22"
+            - "Ethernet1/23"
+            - "Ethernet1/24"
+            - "Ethernet1/25"
+            - "Ethernet1/26"
+            - "Ethernet1/27"
+            - "Ethernet1/28"
+            - "Ethernet1/29"
+            - "Ethernet1/30"
+            - "Ethernet1/31"
+            - "Ethernet1/32"
+            - "Ethernet1/33"
+            - "Ethernet1/34"
+            - "Ethernet1/35"
+            - "Ethernet1/36"
+            - "Ethernet1/37"
+            - "Ethernet1/38"
+            - "Ethernet1/39"
+            - "Ethernet1/40"
+            - "Ethernet1/41"
+            - "Ethernet1/42"
+            - "Ethernet1/43"
+            - "Ethernet1/44"
+            - "Ethernet1/45"
+            - "Ethernet1/46"
+            - "Ethernet1/47"
+            - "Ethernet1/48"
+          gaming_ports:
+            - "Ethernet1/18 (Gaming Zone)"
+            - "Ethernet1/19 (Gaming Zone)"
+            - "Ethernet1/20 (Gaming Zone)"
+            - "Ethernet1/21 (Gaming Zone)"
+            - "Ethernet1/22 (Gaming Zone)"
+            - "Ethernet1/23 (Gaming Zone)"
+            - "Ethernet1/24 (Gaming Zone)"
+            - "Ethernet1/25 (Gaming Zone)"
+            - "Ethernet1/26 (Gaming Zone)"
+            - "Ethernet1/27 (Gaming Zone)"
+            - "Ethernet1/28 (Gaming Zone)"
+            - "Ethernet1/29 (Gaming Zone)"
+            - "Ethernet1/30 (Gaming Zone)"
+            - "Ethernet1/31 (Gaming Zone)"
+            - "Ethernet1/32 (Gaming Zone)"
+            - "Ethernet1/33 (Gaming Zone)"
+            - "Ethernet1/34 (Gaming Zone)"
+            - "Ethernet1/35 (Gaming Zone)"
+            - "Ethernet1/36 (Gaming Zone)"
+            - "Ethernet1/37 (Gaming Zone)"
+            - "Ethernet1/38 (Gaming Zone)"
+            - "Ethernet1/39 (Gaming Zone)"
+            - "Ethernet1/40 (Gaming Zone)"
+            - "Ethernet1/41 (Gaming Zone)"
+            - "Ethernet1/42 (Gaming Zone)"
+            - "Ethernet1/43 (Gaming Zone)"
+            - "Ethernet1/44 (Gaming Zone)"
+            - "Ethernet1/45 (Gaming Zone)"
+            - "Ethernet1/46 (Gaming Zone)"
+          trunk_ports:
+            - "Ethernet1/50 (Proxmox Trunk - Protected)"
+            - "Ethernet1/52 (TrueNAS Trunk - Protected)"
+          management_ports:
+            - "mgmt0 (Management - Protected)"
+            - "port-channel1 (LAG to Arista - Protected)"
+
+      access_switch:
+        name: "Access Layer Switch (8-port)"
+        ip: "172.23.7.20"
+        model: "8-Port Gigabit Switch"
+        safe_ports:
+          access_ports:
+            - "GigabitEthernet0/1"
+            - "GigabitEthernet0/2"
+            - "GigabitEthernet0/3"
+            - "GigabitEthernet0/4"
+            - "GigabitEthernet0/5"
+            - "GigabitEthernet0/6"
+            - "GigabitEthernet0/7"
+          uplink_ports:
+            - "GigabitEthernet0/8 (Uplink to Arista - Protected)"
+        port_descriptions:
+          "GigabitEthernet0/1": "Office Workstation"
+          "GigabitEthernet0/2": "Mac Studio"
+          "GigabitEthernet0/3": "Office Communications"
+          "GigabitEthernet0/4": "Wireless Access Point"
+          "GigabitEthernet0/5": "Xbox Gaming Console"
+          "GigabitEthernet0/6": "Nintendo Switch"
+          "GigabitEthernet0/7": "Available - Access Port"
+
+    # VLAN definitions for reference
+    vlan_definitions:
+      2: "SERVERS - Server infrastructure (172.23.2.0/24)"
+      3: "WORKSTATIONS - User workstations (172.23.3.0/24)"
+      4: "GUEST - Guest network (172.23.4.0/24)"
+      5: "IOT - IoT devices (172.23.5.0/24)"
+      6: "GAMING - Gaming/entertainment (172.23.6.0/24)"
+      7: "MANAGEMENT - Network management (172.23.7.0/24)"
+
+  pre_tasks:
+    - name: Display operation details
+      debug:
+        msg:
+          - "=== SWITCH INTERFACE LISTING ==="
+          - "Switch: {{ switch_name | default('NOT SELECTED') }}"
+          - "================================"
+
+    - name: Validate switch_name is provided
+      fail:
+        msg: |
+          Switch name is required!
+          
+          Please provide switch_name variable:
+          - switch_name: Switch to query (arista_core, cisco_nexus, access_switch)
+          
+          Current value: {{ switch_name | default('NOT SET') }}
+          
+          Valid switches: arista_core, cisco_nexus, access_switch
+      when: switch_name | default('') == ''
+
+    - name: Validate switch configuration exists
+      fail:
+        msg: |
+          Switch '{{ switch_name }}' not found in configuration!
+          
+          Valid switches:
+          - arista_core: Arista Core Switch (tks-sw-arista-core-1)
+          - cisco_nexus: Cisco Nexus Switch (tks-sw-cis-nexus-1)
+          - access_switch: Access Layer Switch (8-port)
+      when: switch_name not in switch_interface_configs
+
+    - name: Get switch interface configuration
+      set_fact:
+        switch_config: "{{ switch_interface_configs[switch_name] }}"
+
+  tasks:
+    - name: Display switch information
+      debug:
+        msg:
+          - "=== SWITCH INFORMATION ==="
+          - "Name: {{ switch_config.name }}"
+          - "IP Address: {{ switch_config.ip }}"
+          - "Model: {{ switch_config.model }}"
+          - "========================="
+
+    - name: Display available access ports
+      debug:
+        msg: |
+          🔌 AVAILABLE ACCESS PORTS (Safe for VLAN Assignment)
+          ===================================================
+          {% for port in switch_config.safe_ports.access_ports %}
+          {{ loop.index }}. {{ port }} - {{ switch_config.port_descriptions.get(port, 'Available - Access Port') if switch_config.port_descriptions is defined else 'Available - Access Port' }}
+          {% endfor %}
+          
+          📝 Use these ports for VLAN assignment operations.
+
+    - name: Display gaming zone ports (Cisco Nexus only)
+      debug:
+        msg: |
+          🎮 GAMING ZONE PORTS (Cisco Nexus - VLAN 6 Recommended)
+          =======================================================
+          {% for port in switch_config.safe_ports.get('gaming_ports', []) %}
+          {{ loop.index }}. {{ port }}
+          {% endfor %}
+          
+          🎯 These ports are optimized for gaming devices.
+      when: switch_config.safe_ports.get('gaming_ports') is defined
+
+    - name: Display high-speed ports (Arista Core only)
+      debug:
+        msg: |
+          ⚡ HIGH-SPEED PORTS (Arista Core - 10GbE)
+          =========================================
+          {% for port in switch_config.safe_ports.get('high_speed_ports', []) %}
+          {{ loop.index }}. {{ port }}
+          {% endfor %}
+          
+          🚀 These ports support 10GbE connections.
+      when: switch_config.safe_ports.get('high_speed_ports') is defined
+
+    - name: Display trunk ports
+      debug:
+        msg: |
+          🔗 TRUNK PORTS (Protected - Do Not Modify)
+          ==========================================
+          {% for port in switch_config.safe_ports.get('trunk_ports', []) %}
+          {{ loop.index }}. {{ port }}
+          {% endfor %}
+          
+          ⚠️  These ports are protected and should not be modified.
+
+    - name: Display management ports
+      debug:
+        msg: |
+          🛠️  MANAGEMENT PORTS (Protected - Do Not Modify)
+          ===============================================
+          {% for port in switch_config.safe_ports.get('management_ports', []) %}
+          {{ loop.index }}. {{ port }}
+          {% endfor %}
+          
+          ⚠️  These ports are protected and should not be modified.
+
+    - name: Display uplink ports (Access Switch only)
+      debug:
+        msg: |
+          🔗 UPLINK PORTS (Access Switch - Protected)
+          ===========================================
+          {% for port in switch_config.safe_ports.get('uplink_ports', []) %}
+          {{ loop.index }}. {{ port }}
+          {% endfor %}
+          
+          ⚠️  These ports are protected and should not be modified.
+      when: switch_config.safe_ports.get('uplink_ports') is defined
+
+    - name: Display VLAN reference
+      debug:
+        msg: |
+          🏷️  AVAILABLE VLANS FOR ASSIGNMENT
+          ==================================
+          {% for vlan_id, vlan_info in vlan_definitions.items() %}
+          VLAN {{ vlan_id }}: {{ vlan_info }}
+          {% endfor %}
+          
+          📋 Use these VLAN IDs when assigning ports.
+
+    - name: Display usage examples
+      debug:
+        msg: |
+          💡 USAGE EXAMPLES
+          ================
+          
+          For VLAN Assignment:
+          - switch_name: {{ switch_name }}
+          - port_interface: Ethernet1/10 (choose from available ports above)
+          - vlan_id: 3 (choose from VLAN list above)
+          - port_desc: "User Workstation"
+          
+          Common Port Assignments:
+          {% if switch_name == 'arista_core' %}
+          - Ethernet1/10: Office workstation (VLAN 3)
+          - Ethernet1/15: Server connection (VLAN 2)
+          - Ethernet1/20: IoT device (VLAN 5)
+          {% elif switch_name == 'cisco_nexus' %}
+          - Ethernet1/18: Gaming console (VLAN 6)
+          - Ethernet1/25: Office workstation (VLAN 3)
+          - Ethernet1/30: IoT device (VLAN 5)
+          {% elif switch_name == 'access_switch' %}
+          - GigabitEthernet0/3: Office workstation (VLAN 3)
+          - GigabitEthernet0/5: Gaming console (VLAN 6)
+          - GigabitEthernet0/7: Available for new device
+          {% endif %}
+
+  post_tasks:
+    - name: Display summary
+      debug:
+        msg:
+          - "=== INTERFACE LISTING COMPLETE ==="
+          - "Switch: {{ switch_config.name }}"
+          - "Total Access Ports: {{ switch_config.safe_ports.access_ports | length }}"
+          - "Protected Ports: {{ (switch_config.safe_ports.get('trunk_ports', []) + switch_config.safe_ports.get('management_ports', []) + switch_config.safe_ports.get('uplink_ports', [])) | length }}"
+          - "================================"
+          - "Use this information to select the correct port for VLAN assignment."
