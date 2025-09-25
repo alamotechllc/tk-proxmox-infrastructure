@@ -10,7 +10,7 @@
   vars:
     # Switch-specific interface configurations
     switch_interface_configs:
-      arista_core:
+      tks-sw-arista-core-1:
         name: "Arista Core Switch (tks-sw-arista-core-1)"
         ip: "172.23.7.10"
         model: "DCS-7050T-64"
@@ -119,7 +119,7 @@
           "Ethernet1/47": "Available - Access Port"
           "Ethernet1/48": "Available - Access Port"
 
-      cisco_nexus:
+      tks-sw-cis-nexus-1:
         name: "Cisco Nexus Access Switch (tks-sw-cis-nexus-1)"
         ip: "210.141.77.15"
         model: "N9K-C93180YC-EX"
@@ -210,7 +210,7 @@
             - "mgmt0 (Management - Protected)"
             - "port-channel1 (LAG to Arista - Protected)"
 
-      access_switch:
+      tks-sw-access-1:
         name: "Access Layer Switch (8-port)"
         ip: "172.23.7.20"
         model: "8-Port Gigabit Switch"
