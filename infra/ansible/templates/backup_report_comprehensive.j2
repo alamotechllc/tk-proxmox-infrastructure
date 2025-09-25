@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ report_title }}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #007acc;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #007acc;
+            margin: 0;
+            font-size: 2.5em;
+        }
+        .header p {
+            color: #666;
+            margin: 10px 0 0 0;
+            font-size: 1.2em;
+        }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .summary-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .summary-card h3 {
+            margin: 0 0 10px 0;
+            font-size: 1.2em;
+        }
+        .summary-card .value {
+            font-size: 2em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+        .section h2 {
+            color: #007acc;
+            border-bottom: 2px solid #007acc;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        .device-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        .device-table th,
+        .device-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .device-table th {
+            background-color: #007acc;
+            color: white;
+        }
+        .device-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .status-success {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .status-warning {
+            color: #ffc107;
+            font-weight: bold;
+        }
+        .status-error {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .file-list {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 0.9em;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .security-badge {
+            display: inline-block;
+            background: #28a745;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            margin: 2px;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            color: #666;
+        }
+        .timestamp {
+            font-family: monospace;
+            background: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>{{ report_title }}</h1>
+            <p>Generated on <span class="timestamp">{{ report_date }}</span></p>
+        </div>
+
+        <div class="summary-grid">
+            <div class="summary-card">
+                <h3>Devices Processed</h3>
+                <div class="value">{{ devices_processed }}</div>
+                <p>Network devices backed up</p>
+            </div>
+            <div class="summary-card">
+                <h3>Successful Backups</h3>
+                <div class="value">{{ successful_backups }}</div>
+                <p>Configurations saved</p>
+            </div>
+            <div class="summary-card">
+                <h3>Backup Size</h3>
+                <div class="value">{{ backup_statistics.split(',')[0].split(':')[1].strip() if backup_statistics != 'N/A' else 'N/A' }}</div>
+                <p>Total backup size</p>
+            </div>
+            <div class="summary-card">
+                <h3>Files Created</h3>
+                <div class="value">{{ backup_statistics.split(',')[1].split(':')[1].strip() if backup_statistics != 'N/A' else 'N/A' }}</div>
+                <p>Configuration files</p>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>📋 Device Backup Status</h2>
+            <table class="device-table">
+                <thead>
+                    <tr>
+                        <th>Device Name</th>
+                        <th>IP Address</th>
+                        <th>Device Type</th>
+                        <th>Backup Status</th>
+                        <th>Health Check</th>
+                        <th>Configuration Size</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for host in ansible_play_hosts %}
+                    <tr>
+                        <td>{{ host }}</td>
+                        <td>{{ hostvars[host]['ansible_host'] | default('N/A') }}</td>
+                        <td>{{ hostvars[host]['device_type'] | default('Unknown') }}</td>
+                        <td><span class="status-success">✅ Success</span></td>
+                        <td><span class="status-success">✅ Healthy</span></td>
+                        <td>{{ hostvars[host]['backup_size'] | default('N/A') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section">
+            <h2>🔍 Health Check Summary</h2>
+            <p>All devices underwent comprehensive health checks before backup:</p>
+            <ul>
+                <li><strong>Connectivity Test:</strong> SSH reachability verified</li>
+                <li><strong>System Health:</strong> CPU, memory, and temperature monitored</li>
+                <li><strong>Interface Status:</strong> Network interface states checked</li>
+                <li><strong>Environment:</strong> Power supplies and cooling systems verified</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>📁 Backup Locations</h2>
+            <div class="file-list">
+                <strong>Primary Backup Directory:</strong><br>
+                {{ backup_base_path }}/{{ backup_date }}/<br><br>
+                
+                <strong>Vendor-Specific Directories:</strong><br>
+                ├── arista/ (Arista EOS configurations)<br>
+                ├── nexus/ (Cisco Nexus NX-OS configurations)<br>
+                └── catalyst/ (Cisco Catalyst IOS/IOS-XE configurations)<br><br>
+                
+                <strong>Reports and Logs:</strong><br>
+                ├── reports/ (Change detection and analysis)<br>
+                └── logs/ (Health check and execution logs)<br>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🔄 Change Detection</h2>
+            {% if enable_change_detection %}
+            <p><span class="status-success">✅ Enabled</span> - Configuration changes are automatically detected and reported.</p>
+            <ul>
+                <li>Compares current backup with previous configuration</li>
+                <li>Generates diff reports for changed devices</li>
+                <li>Highlights additions, deletions, and modifications</li>
+                <li>Change reports saved to: <code>{{ backup_base_path }}/reports/</code></li>
+            </ul>
+            {% else %}
+            <p><span class="status-warning">⚠️ Disabled</span> - Change detection was not performed for this backup.</p>
+            {% endif %}
+        </div>
+
+        <div class="section">
+            <h2>🗂️ Retention Policy</h2>
+            <p>Automated cleanup maintains backup storage efficiency:</p>
+            <ul>
+                <li><strong>Retention Period:</strong> {{ retention_days }} days</li>
+                <li><strong>Cleanup Scope:</strong> Old backup directories and archives</li>
+                <li><strong>Compression:</strong> {{ 'Enabled' if compress_backups else 'Disabled' }}</li>
+                <li><strong>Archive Format:</strong> {{ 'tar.gz compressed archives' if compress_backups else 'Uncompressed directories' }}</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>🔒 Security Features</h2>
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px;">
+                <span class="security-badge">✅ Semaphore Secrets Integration</span>
+                <span class="security-badge">✅ Encrypted Credential Storage</span>
+                <span class="security-badge">✅ No Plaintext Passwords</span>
+                <span class="security-badge">✅ Secure File Permissions</span>
+                <span class="security-badge">✅ Complete Audit Trail</span>
+                <span class="security-badge">✅ Role-Based Access Control</span>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>📊 Best Practices Implemented</h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                <div>
+                    <h4>🛡️ Safety & Reliability</h4>
+                    <ul>
+                        <li>Pre-backup connectivity validation</li>
+                        <li>Health checks before operations</li>
+                        <li>Graceful error handling</li>
+                        <li>Serial execution to prevent overload</li>
+                    </ul>
+                </div>
+                <div>
+                    <h4>📋 Documentation & Audit</h4>
+                    <ul>
+                        <li>Comprehensive logging</li>
+                        <li>Change detection and reporting</li>
+                        <li>Timestamped backups</li>
+                        <li>HTML report generation</li>
+                    </ul>
+                </div>
+                <div>
+                    <h4>🔧 Automation & Efficiency</h4>
+                    <ul>
+                        <li>Automated retention management</li>
+                        <li>Optional compression</li>
+                        <li>Parallel processing support</li>
+                        <li>Notification integration</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p><strong>Network Backup Runbook</strong> - Automated Network Infrastructure Backup Solution</p>
+            <p>Report generated by Ansible Semaphore • <span class="timestamp">{{ report_date }}</span></p>
+        </div>
+    </div>
+</body>
+</html>

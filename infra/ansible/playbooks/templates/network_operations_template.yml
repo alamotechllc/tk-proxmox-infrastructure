@@ -9,9 +9,9 @@
   serial: "{{ concurrency | default(3) }}"
   
   vars:
-    # Template parameters (can be overridden)
-    operation: "{{ operation | default('health_check') }}"  # backup, vlan_assign, port_enable, port_disable, health_check
-    target_device: "{{ target_device | default('all') }}"
+    # Template parameters (these are passed as extra variables from Semaphore)
+    # operation: passed as extra variable - backup, vlan_assign, port_enable, port_disable, health_check
+    # target_device: passed as extra variable - defaults to 'all'
     
     # Port operation parameters (these are passed as extra variables)
     # port_interface: passed as extra variable

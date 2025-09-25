@@ -1,386 +1,351 @@
-# 🔌 Network Switch Configuration Backup Runbook
+# Network Backup Runbook
 
 ## 🎯 Overview
 
-Comprehensive backup solution for multi-vendor network infrastructure including:
-- **Arista EOS** switches (eAPI-based backup)
-- **Cisco Nexus NX-OS** switches (CLI-based backup)  
-- **Cisco Catalyst IOS-XE** switches (CLI-based backup)
+The Network Backup Runbook is a comprehensive Ansible-based solution for backing up network infrastructure configurations with enterprise-grade features and best practices.
 
-## 🏗️ Architecture
+## 🚀 Features
 
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Semaphore     │───▶│  Ansible        │───▶│  Network        │
-│   Scheduler     │    │  Playbooks      │    │  Switches       │
-│                 │    │                 │    │                 │
-│ • Daily/Weekly  │    │ • Vendor-aware  │    │ • Arista EOS    │
-│ • Retention     │    │ • Error handling│    │ • Nexus NX-OS   │
-│ • Compression   │    │ • Reporting     │    │ • Catalyst IOS  │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-                                │
-                                ▼
-                       ┌─────────────────┐
-                       │  Backup Storage │
-                       │                 │
-                       │ • Timestamped   │
-                       │ • Compressed    │
-                       │ • Organized     │
-                       └─────────────────┘
-```
+### 🛡️ **Safety & Reliability**
+- **Pre-backup Health Checks**: Validates device health before backup operations
+- **Connectivity Validation**: Tests SSH reachability before proceeding
+- **Serial Execution**: Prevents network overload with controlled concurrency
+- **Graceful Error Handling**: Continues with other devices if one fails
+- **Protected Operations**: Validates credentials and permissions
 
-## 📁 File Structure
+### 📋 **Comprehensive Backup**
+- **Multi-Vendor Support**: Arista EOS, Cisco Nexus NX-OS, Cisco Catalyst IOS/IOS-XE
+- **Configuration Backup**: Complete running configurations with timestamps
+- **Change Detection**: Automatic comparison with previous backups
+- **Health Monitoring**: CPU, memory, temperature, and interface status
+- **Structured Storage**: Organized by vendor and date
+
+### 🔧 **Automation & Efficiency**
+- **Automated Retention**: Configurable cleanup of old backups
+- **Compression Support**: Optional compression for storage efficiency
+- **Parallel Processing**: Configurable concurrency for faster execution
+- **Notification Integration**: Email and Slack notifications
+- **HTML Reports**: Professional backup reports with statistics
+
+### 🔒 **Security**
+- **Semaphore Secrets**: Secure credential management
+- **No Plaintext Passwords**: All credentials encrypted
+- **Audit Trail**: Complete logging of all operations
+- **Secure Permissions**: Proper file and directory permissions
+- **Role-Based Access**: Integration with Semaphore RBAC
+
+## 📁 Repository Structure
 
 ```
 infra/
 ├── ansible/
 │   ├── playbooks/network/
-│   │   ├── backup_switches.yml           # Main backup playbook
-│   │   └── schedule_backups.yml          # Backup scheduling setup
-│   ├── templates/
-│   │   └── backup_report.j2              # Backup summary report template
-│   └── inventories/prod/hosts.yml        # Network device inventory
+│   │   └── network_backup_runbook.yml      # Main backup playbook
+│   └── templates/
+│       └── backup_report_comprehensive.j2   # HTML report template
 ├── scripts/
-│   └── backup_network_switches.sh        # Backup execution script
-└── NETWORK_BACKUP_RUNBOOK.md             # This documentation
-```
-
-## 🚀 Quick Start
-
-### 1. **Manual Backup (All Switches)**
-```bash
-cd /Users/mike.turner/APP_Projects/tk-proxmox
-./infra/scripts/backup_network_switches.sh
-```
-
-### 2. **Vendor-Specific Backup**
-```bash
-# Backup only Arista switches
-./infra/scripts/backup_network_switches.sh -v arista
-
-# Backup only Nexus switches  
-./infra/scripts/backup_network_switches.sh -v nexus
-
-# Backup only Catalyst switches
-./infra/scripts/backup_network_switches.sh -v catalyst
-```
-
-### 3. **Custom Options**
-```bash
-# Custom location with compression and 60-day retention
-./infra/scripts/backup_network_switches.sh -l /backup/network -c -r 60
-
-# Dry run to see what would be backed up
-./infra/scripts/backup_network_switches.sh -n
+│   └── run_network_backup.sh               # Execution wrapper script
+└── NETWORK_BACKUP_RUNBOOK.md              # This documentation
 ```
 
 ## 🔧 Configuration
 
-### **Backup Targets (Your Actual Switches)**
+### Inventory Requirements
 
-#### **🔹 Arista EOS Core Switch**
-- **Device**: `arista-core-01` (172.23.5.1)
-- **Model**: DCS-7280SR-48C6
-- **OS**: EOS-4.28.3M
-- **Backup Method**: eAPI + CLI
-- **Files Generated**:
-  - `arista-core-01_[timestamp].cfg` (running-config)
-  - `arista-core-01_startup_[timestamp].cfg` (startup-config)
-  - `arista-core-01_info_[timestamp].txt` (system info)
+Your Ansible inventory must include network devices with the following structure:
 
-#### **🔹 Cisco Nexus Aggregation Switch**
-- **Device**: `nexus-agg-01` (172.23.5.2)
-- **Model**: N9K-C93180YC-EX
-- **OS**: NX-OS 9.3(8)
-- **Backup Method**: CLI via SSH
-- **Files Generated**:
-  - `nexus-agg-01_[timestamp].cfg` (running-config)
-  - `nexus-agg-01_startup_[timestamp].cfg` (startup-config)
-  - `nexus-agg-01_info_[timestamp].txt` (system info + VPC status)
+```yaml
+network_switches:
+  children:
+    core_switches:
+      hosts:
+        arista-core-01:
+          ansible_host: 172.23.5.1
+          device_type: arista_eos
+        nexus-agg-01:
+          ansible_host: 172.23.5.2
+          device_type: cisco_nxos
+    
+    access_switches:
+      hosts:
+        catalyst-access-01:
+          ansible_host: 172.23.5.10
+          device_type: cisco_ios
+        catalyst-access-02:
+          ansible_host: 172.23.5.11
+          device_type: cisco_ios
+```
 
-#### **🔹 Cisco Catalyst Access Switches**
-- **Devices**: 
-  - `catalyst-access-01` (172.23.5.10) - C9300-48P
-  - `catalyst-access-02` (172.23.5.11) - C9300-24P
-- **OS**: IOS-XE 16.12.09
-- **Backup Method**: CLI via SSH
-- **Files Generated**:
-  - `catalyst-access-0X_[timestamp].cfg` (running-config)
-  - `catalyst-access-0X_startup_[timestamp].cfg` (startup-config)
-  - `catalyst-access-0X_info_[timestamp].txt` (system info + stack status)
+### Required Variables
 
-### **Backup Storage Structure**
+The runbook uses the following variables (typically provided by Semaphore secrets):
+
+```yaml
+# Security (Semaphore Secrets)
+semaphore_admin_user: admin
+semaphore_admin_password: "{{ secret }}"
+semaphore_enable_password: "{{ secret }}"
+
+# Backup Configuration
+backup_location: /opt/network_backups
+backup_retention_days: 30
+compress_backups: true
+detect_changes: true
+backup_concurrency: 2
+
+# Notifications (Optional)
+notification_email: admin@company.com
+slack_webhook_url: https://hooks.slack.com/...
+```
+
+## 🚀 Usage
+
+### Command Line Execution
+
+```bash
+# Basic backup of all switches
+./infra/scripts/run_network_backup.sh
+
+# Backup with custom settings
+./infra/scripts/run_network_backup.sh \
+  --devices core_switches \
+  --location /backup/network \
+  --retention 60 \
+  --compress \
+  --email admin@company.com
+
+# Dry run to test configuration
+./infra/scripts/run_network_backup.sh --dry-run --verbose
+```
+
+### Semaphore Template Execution
+
+1. **Create Template** in Semaphore:
+   - **Name**: Network Backup Runbook
+   - **Playbook**: `infra/ansible/playbooks/network/network_backup_runbook.yml`
+   - **Inventory**: Your network inventory
+   - **Extra Variables**: See configuration section
+
+2. **Configure Secrets**:
+   - `semaphore_admin_user`: Network device admin username
+   - `semaphore_admin_password`: Network device admin password
+   - `semaphore_enable_password`: Enable/privileged mode password
+
+3. **Execute Template** with desired parameters
+
+### Available Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--devices GROUP` | Target device group | `network_switches` |
+| `--location PATH` | Backup storage location | `/opt/network_backups` |
+| `--retention DAYS` | Backup retention period | `30` |
+| `--compress` | Enable backup compression | `true` |
+| `--detect-changes` | Enable change detection | `true` |
+| `--concurrency NUM` | Parallel device processing | `2` |
+| `--email EMAIL` | Notification email address | None |
+| `--slack-webhook URL` | Slack webhook for notifications | None |
+| `--dry-run` | Test without making changes | `false` |
+| `--verbose` | Detailed output | `false` |
+
+## 📊 Output Structure
+
+The runbook creates the following directory structure:
+
 ```
 /opt/network_backups/
-├── 2025-09-20/                    # Daily backups
-│   ├── arista/
-│   │   ├── arista-core-01_1726867200.cfg
-│   │   ├── arista-core-01_startup_1726867200.cfg
-│   │   └── arista-core-01_info_1726867200.txt
-│   ├── nexus/
-│   │   ├── nexus-agg-01_1726867200.cfg
-│   │   └── nexus-agg-01_info_1726867200.txt
-│   ├── catalyst/
-│   │   ├── catalyst-access-01_1726867200.cfg
-│   │   └── catalyst-access-02_1726867200.cfg
-│   └── logs/
-│       └── backup_summary_1726867200.txt
-├── daily/                         # Daily retention
-├── weekly/                        # Weekly retention
-├── monthly/                       # Monthly retention
-└── logs/
-    ├── daily_backup.log
-    ├── weekly_backup.log
-    └── monthly_backup.log
+├── 2024-01-15/                    # Daily backup directory
+│   ├── arista/                    # Arista EOS configurations
+│   │   ├── arista-core-01_1642204800.cfg
+│   │   └── arista-dist-01_1642204801.cfg
+│   ├── nexus/                     # Cisco Nexus configurations
+│   │   └── nexus-agg-01_1642204802.cfg
+│   └── catalyst/                  # Cisco Catalyst configurations
+│       ├── catalyst-access-01_1642204803.cfg
+│       └── catalyst-access-02_1642204804.cfg
+├── reports/                       # Analysis and reports
+│   ├── network_backup_report_1642204800.html
+│   ├── arista-core-01_changes_1642204800.diff
+│   └── nexus-agg-01_changes_1642204801.txt
+├── logs/                          # Execution and health logs
+│   ├── arista-core-01_health_1642204800.log
+│   └── backup_execution_1642204800.log
+└── network_backup_2024-01-15_1642204800.tar.gz  # Compressed archive
 ```
 
-## ⚙️ Backup Features
+## 🔍 Monitoring & Reporting
 
-### **✅ Multi-Vendor Support**
-- **Arista EOS**: Uses `eos_config` and `eos_facts` modules
-- **Cisco Nexus**: Uses `nxos_config` and `nxos_facts` modules
-- **Cisco Catalyst**: Uses `ios_config` and `ios_facts` modules
+### Health Checks
 
-### **✅ Comprehensive Backup**
-- **Running Configuration**: Current active config
-- **Startup Configuration**: Boot configuration
-- **System Information**: Hardware details, uptime, interfaces
-- **Vendor-Specific Data**: VPC status (Nexus), Stack info (Catalyst)
+Before each backup, the runbook performs:
 
-### **✅ Error Handling**
-- **Individual Device Failures**: Continues backing up other devices
-- **Detailed Logging**: Failure logs with timestamps
-- **Retry Logic**: Built-in Ansible retry mechanisms
-- **Success Reporting**: Detailed success/failure summary
+- **Connectivity Test**: SSH reachability validation
+- **System Health**: CPU, memory, temperature monitoring
+- **Interface Status**: Network interface state verification
+- **Environment Check**: Power supplies and cooling systems
 
-### **✅ Storage Management**
-- **Organized Structure**: Date-based directories
-- **Retention Policies**: Automatic cleanup of old backups
-- **Compression**: Optional gzip compression
-- **Space Monitoring**: Disk usage tracking
+### Change Detection
 
-## 🕐 Automated Scheduling
+When enabled, the runbook:
 
-### **Setup Automated Backups**
-```bash
-# Configure scheduled backups
-cd /Users/mike.turner/APP_Projects/tk-proxmox/infra/ansible
-ansible-playbook playbooks/network/schedule_backups.yml
+- Compares current configuration with previous backup
+- Generates unified diff files for changed devices
+- Creates change summary reports
+- Highlights configuration modifications
+
+### Comprehensive Reports
+
+The runbook generates HTML reports containing:
+
+- **Executive Summary**: Backup statistics and status
+- **Device Status Table**: Per-device backup results
+- **Health Check Results**: System health analysis
+- **Change Detection**: Configuration change summary
+- **Security Audit**: Security features verification
+
+## 🛠️ Best Practices Implementation
+
+### Network Automation Standards
+
+- **Idempotent Operations**: Safe to run multiple times
+- **Vendor Abstraction**: Consistent interface across vendors
+- **Error Recovery**: Graceful handling of device failures
+- **Logging Standards**: Structured logging for troubleshooting
+
+### Security Best Practices
+
+- **Credential Protection**: No plaintext passwords in logs
+- **Secure Storage**: Encrypted credential management
+- **Audit Compliance**: Complete operation tracking
+- **Access Control**: Role-based permission management
+
+### Operational Excellence
+
+- **Automated Retention**: Prevents storage overflow
+- **Performance Optimization**: Parallel processing support
+- **Notification Integration**: Proactive alerting
+- **Documentation**: Self-documenting reports and logs
+
+## 🔧 Customization
+
+### Adding New Vendors
+
+To support additional network vendors:
+
+1. **Add Device Detection**:
+   ```yaml
+   - name: Get device info (New Vendor)
+     new_vendor_command:
+       commands:
+         - "show version"
+         - "show system"
+     when: device_type == "new_vendor"
+   ```
+
+2. **Add Backup Logic**:
+   ```yaml
+   - name: Backup New Vendor configuration
+     new_vendor_config:
+       backup: yes
+       backup_options:
+         filename: "{{ inventory_hostname }}_{{ backup_timestamp }}.cfg"
+         dir_path: "{{ backup_base_path }}/{{ backup_date }}/new_vendor/"
+     when: device_type == "new_vendor"
+   ```
+
+3. **Update Directory Structure**: Add vendor-specific directories
+
+### Custom Health Checks
+
+Add vendor-specific health monitoring:
+
+```yaml
+- name: Custom health check
+  new_vendor_command:
+    commands:
+      - "show environment"
+      - "show processes"
+  register: custom_health
+  when: device_type == "new_vendor"
 ```
 
-### **Default Schedule**
-- **Daily**: 02:30 AM (7-day retention)
-- **Weekly**: Sunday 03:00 AM (30-day retention)
-- **Monthly**: 1st of month 04:00 AM (365-day retention)
+### Notification Customization
 
-### **Monitoring Backups**
-```bash
-# Check backup status
-/opt/network_backups/check_backup_status.sh
+Extend notification support:
 
-# View backup logs
-tail -f /opt/network_backups/logs/daily_backup.log
-
-# List recent backups
-find /opt/network_backups -name "*.cfg" -mtime -7
+```yaml
+- name: Custom notification
+  uri:
+    url: "{{ custom_webhook_url }}"
+    method: POST
+    body_format: json
+    body:
+      message: "Backup completed for {{ inventory_hostname }}"
+  when: custom_webhook_url is defined
 ```
-
-## 🔧 Usage Examples
-
-### **Basic Operations**
-```bash
-# Backup all switches
-./infra/scripts/backup_network_switches.sh
-
-# Backup with compression
-./infra/scripts/backup_network_switches.sh -c
-
-# Backup to custom location
-./infra/scripts/backup_network_switches.sh -l /backup/network
-
-# Dry run (test without executing)
-./infra/scripts/backup_network_switches.sh -n
-```
-
-### **Vendor-Specific Operations**
-```bash
-# Backup only Arista switches
-./infra/scripts/backup_network_switches.sh -v arista
-
-# Backup only Nexus switches with 60-day retention
-./infra/scripts/backup_network_switches.sh -v nexus -r 60
-
-# Backup only Catalyst switches with compression
-./infra/scripts/backup_network_switches.sh -v catalyst -c
-```
-
-### **Advanced Operations**
-```bash
-# Full backup with all options
-./infra/scripts/backup_network_switches.sh \
-  -v all \
-  -l /opt/network_backups \
-  -r 90 \
-  -c
-
-# Emergency backup before maintenance
-./infra/scripts/backup_network_switches.sh \
-  -l /backup/emergency/$(date +%Y%m%d_%H%M) \
-  -c \
-  -f
-```
-
-## 📊 Monitoring & Reporting
-
-### **Backup Summary Report**
-Each backup generates a detailed summary:
-- Device count and success rate
-- Vendor breakdown
-- File locations and sizes
-- Failed device details
-- Next steps and recommendations
-
-### **Log Files**
-- **Execution Logs**: `/opt/network_backups/logs/`
-- **Ansible Logs**: Detailed playbook execution
-- **Error Logs**: Device-specific failure details
-- **Summary Reports**: Human-readable backup summaries
-
-### **Health Monitoring**
-```bash
-# Check backup health
-/opt/network_backups/check_backup_status.sh
-
-# Monitor backup size trends
-du -sh /opt/network_backups/daily/* | tail -10
-
-# Check for backup failures
-grep -r "FAILED" /opt/network_backups/logs/
-```
-
-## 🔒 Security Considerations
-
-### **Credential Management**
-- ✅ **Environment Variables**: Credentials stored in Semaphore environment
-- ✅ **No Plaintext**: No passwords in playbooks or scripts
-- ✅ **Vendor-Specific**: Separate credentials per device type
-- ✅ **Rotation-Ready**: Easy credential updates
-
-### **Access Control**
-- **File Permissions**: Restricted access to backup files
-- **Network Access**: Backup server has limited network access
-- **Audit Trail**: All backup operations logged
-- **Encryption**: Optional backup file encryption
-
-### **Compliance**
-- **Retention Policies**: Configurable retention periods
-- **Change Tracking**: Configuration drift detection
-- **Documentation**: Self-documenting backup process
-- **Recovery Testing**: Built-in restore verification
 
 ## 🚨 Troubleshooting
 
-### **Common Issues**
+### Common Issues
 
-#### **Authentication Failures**
+1. **SSH Connection Failures**:
+   - Verify device IP addresses and SSH access
+   - Check firewall rules and network connectivity
+   - Validate SSH key authentication
+
+2. **Authentication Errors**:
+   - Verify Semaphore secrets configuration
+   - Check username and password validity
+   - Ensure enable password is correct
+
+3. **Permission Denied**:
+   - Verify backup directory permissions
+   - Check Ansible execution user privileges
+   - Ensure sufficient disk space
+
+4. **Network Module Errors**:
+   - Install required Ansible collections:
+     ```bash
+     ansible-galaxy collection install arista.eos
+     ansible-galaxy collection install cisco.nxos
+     ansible-galaxy collection install cisco.ios
+     ```
+
+### Debug Mode
+
+Enable verbose logging for troubleshooting:
+
 ```bash
-# Check credentials in Semaphore environment
-# Update: Project → Environment → Multi-Vendor Switch Credentials
-
-# Test connectivity
-ansible arista_devices -i inventories/prod/hosts.yml -m ping
-ansible cisco_nxos_devices -i inventories/prod/hosts.yml -m ping
-ansible cisco_ios_devices -i inventories/prod/hosts.yml -m ping
+./infra/scripts/run_network_backup.sh --verbose --dry-run
 ```
 
-#### **Storage Issues**
-```bash
-# Check disk space
-df -h /opt/network_backups
+### Log Analysis
 
-# Check permissions
-ls -la /opt/network_backups
+Check the following locations for detailed information:
 
-# Clean old backups manually
-find /opt/network_backups -mtime +30 -delete
-```
+- **Execution Logs**: `{{ backup_location }}/logs/`
+- **Ansible Output**: Standard Ansible logging
+- **Health Reports**: Device-specific health status
+- **Change Reports**: Configuration difference analysis
 
-#### **Network Connectivity**
-```bash
-# Test device reachability
-ansible all -i inventories/prod/hosts.yml -m ping --limit "arista_devices"
+## 📚 Additional Resources
 
-# Check SSH connectivity
-ssh admin@172.23.5.1  # Arista
-ssh admin@172.23.5.2  # Nexus
-ssh admin@172.23.5.10 # Catalyst
-```
+- [Ansible Network Automation Guide](https://docs.ansible.com/ansible/latest/network/index.html)
+- [Arista EOS Collection](https://galaxy.ansible.com/arista/eos)
+- [Cisco NX-OS Collection](https://galaxy.ansible.com/cisco/nxos)
+- [Cisco IOS Collection](https://galaxy.ansible.com/cisco/ios)
+- [Semaphore Documentation](https://docs.semaphoreui.com/)
 
-## 🔄 Disaster Recovery
+## 🤝 Contributing
 
-### **Configuration Restore**
-```bash
-# Restore Arista configuration
-scp backup_file.cfg admin@172.23.5.1:/mnt/flash/
-# Then via CLI: copy flash:backup_file.cfg running-config
+To contribute improvements:
 
-# Restore Nexus configuration  
-scp backup_file.cfg admin@172.23.5.2:backup_file.cfg
-# Then via CLI: copy backup_file.cfg running-config
+1. Test changes in a lab environment
+2. Follow Ansible best practices
+3. Update documentation
+4. Ensure backward compatibility
+5. Add appropriate error handling
 
-# Restore Catalyst configuration
-scp backup_file.cfg admin@172.23.5.10:backup_file.cfg
-# Then via CLI: copy backup_file.cfg running-config
-```
+## 📄 License
 
-### **Emergency Procedures**
-1. **Identify failed device** from monitoring alerts
-2. **Locate latest backup** in `/opt/network_backups/`
-3. **Verify backup integrity** before restore
-4. **Execute restore procedure** for specific vendor
-5. **Validate configuration** after restore
-6. **Update documentation** with incident details
-
-## 📈 Operational Benefits
-
-### **✅ Automated Protection**
-- **Daily Backups**: Protect against configuration drift
-- **Change Tracking**: Compare configurations over time
-- **Compliance**: Meet regulatory backup requirements
-- **Disaster Recovery**: Rapid restoration capabilities
-
-### **✅ Operational Efficiency**
-- **Multi-Vendor**: Single process for all switch types
-- **Scalable**: Easy to add new devices
-- **Centralized**: All backups in one location
-- **Automated**: No manual intervention required
-
-### **✅ Risk Mitigation**
-- **Configuration Loss**: Protect against accidental changes
-- **Hardware Failure**: Rapid device replacement
-- **Human Error**: Rollback capabilities
-- **Compliance**: Audit trail for changes
-
----
-
-## 🎮 **Your Network Backup Runbook is Ready!**
-
-### **🚀 To Execute:**
-1. **Manual Backup**: `./infra/scripts/backup_network_switches.sh`
-2. **Scheduled Backup**: Run `schedule_backups.yml` playbook
-3. **Monitor Status**: Use `/opt/network_backups/check_backup_status.sh`
-
-### **📋 What Gets Backed Up:**
-- ✅ **Arista Core Switch** (172.23.5.1) - Running + Startup configs
-- ✅ **Nexus Aggregation Switch** (172.23.5.2) - Running + Startup configs  
-- ✅ **Catalyst Access Switches** (172.23.5.10-11) - Running + Startup configs
-- ✅ **System Information** - Hardware details, interfaces, vendor-specific data
-- ✅ **Backup Reports** - Detailed success/failure summaries
-
-### **🔐 Security Features:**
-- ✅ **Secure Credentials** - Environment variable storage
-- ✅ **Access Control** - Restricted file permissions
-- ✅ **Audit Trail** - Complete backup logging
-- ✅ **Retention Management** - Automatic cleanup
-
-**Your multi-vendor network switch backup runbook is complete and ready for production use!** 🎉
+This runbook is part of the TK-Proxmox infrastructure automation project.

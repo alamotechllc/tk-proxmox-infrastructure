@@ -1,0 +1,91 @@
+{
+  "template_name": "Switch-Specific VLAN Assignment",
+  "playbook": "playbooks/network/switch_specific_vlan_assignment.yml",
+  "inventory": "inventories/network_switches.yml",
+  "survey_variables": [
+    {
+      "variable_name": "switch_name",
+      "variable_type": "multiple_choice",
+      "description": "Target switch to configure",
+      "required": true,
+      "default_value": "arista_core",
+      "choices": [
+        {
+          "value": "arista_core",
+          "label": "Arista Core Switch (tks-sw-arista-core-1)"
+        },
+        {
+          "value": "cisco_nexus", 
+          "label": "Cisco Nexus Switch (tks-sw-cis-nexus-1)"
+        },
+        {
+          "value": "access_switch",
+          "label": "Access Layer Switch (8-port)"
+        }
+      ]
+    },
+    {
+      "variable_name": "port_interface",
+      "variable_type": "string",
+      "description": "Port interface to configure (e.g., Ethernet1/10)",
+      "required": true,
+      "default_value": "Ethernet1/10"
+    },
+    {
+      "variable_name": "vlan_id",
+      "variable_type": "multiple_choice",
+      "description": "VLAN ID to assign",
+      "required": true,
+      "default_value": "3",
+      "choices": [
+        {
+          "value": "2",
+          "label": "SERVERS (172.23.2.0/24)"
+        },
+        {
+          "value": "3",
+          "label": "WORKSTATIONS (172.23.3.0/24)"
+        },
+        {
+          "value": "4",
+          "label": "GUEST (172.23.4.0/24)"
+        },
+        {
+          "value": "5",
+          "label": "IOT (172.23.5.0/24)"
+        },
+        {
+          "value": "6",
+          "label": "GAMING (172.23.6.0/24)"
+        },
+        {
+          "value": "7",
+          "label": "MANAGEMENT (172.23.7.0/24)"
+        }
+      ]
+    },
+    {
+      "variable_name": "port_desc",
+      "variable_type": "string",
+      "description": "Port description",
+      "required": false,
+      "default_value": "Ansible managed port"
+    }
+  ],
+  "secrets_required": [
+    "semaphore_admin_user",
+    "semaphore_admin_password", 
+    "semaphore_enable_password"
+  ],
+  "prompts": {
+    "cli_args": true,
+    "branch": false,
+    "inventory": false
+  },
+  "ansible_prompts": {
+    "limit": false,
+    "tags": false,
+    "skip_tags": false,
+    "debug": false
+  }
+}
