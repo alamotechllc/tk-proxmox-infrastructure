@@ -1,0 +1,60 @@
+---
+# Proxmox Ping Playbook
+# Test connectivity to Proxmox hosts and VMs
+
+- name: Test Proxmox Host Connectivity
+  hosts: proxmox_hosts
+  gather_facts: false
+  tasks:
+    - name: Test SSH connectivity to Proxmox host
+      ping:
+      register: proxmox_ping_result
+      ignore_errors: true
+    
+    - name: Display Proxmox host connectivity results
+      debug:
+        msg: "Proxmox host {{ inventory_hostname }} - SSH: {{ 'OK' if proxmox_ping_result is succeeded else 'FAILED' }}"
+    
+    - name: Test Proxmox API connectivity
+      uri:
+        url: "{{ proxmox_api_url }}/version"
+        method: GET
+        headers:
+          Authorization: "PVEAPIToken={{ proxmox_username }}:{{ proxmox_token_name }}={{ proxmox_token_value }}"
+        validate_certs: false
+        status_code: 200
+      register: api_ping_result
+      ignore_errors: true
+    
+    - name: Display API connectivity results
+      debug:
+        msg: "Proxmox host {{ inventory_hostname }} - API: {{ 'OK' if api_ping_result is succeeded else 'FAILED' }}"
+        var: api_ping_result.json.data
+
+- name: Test VM Host Connectivity
+  hosts: vm_hosts
+  gather_facts: false
+  tasks:
+    - name: Test SSH connectivity to VM
+      ping:
+      register: vm_ping_result
+      ignore_errors: true
+    
+    - name: Display VM connectivity results
+      debug:
+        msg: "VM {{ inventory_hostname }} - SSH: {{ 'OK' if vm_ping_result is succeeded else 'FAILED' }}"
+    
+    - name: Gather VM system facts
+      setup:
+      when: vm_ping_result is succeeded
+      register: vm_facts
+    
+    - name: Display VM system information
+      debug:
+        msg: |
+          VM: {{ inventory_hostname }}
+          OS: {{ vm_facts.ansible_distribution }} {{ vm_facts.ansible_distribution_version }}
+          Kernel: {{ vm_facts.ansible_kernel }}
+          Memory: {{ vm_facts.ansible_memtotal_mb }}MB
+          CPU Cores: {{ vm_facts.ansible_processor_vcpus }}
+      when: vm_ping_result is succeeded

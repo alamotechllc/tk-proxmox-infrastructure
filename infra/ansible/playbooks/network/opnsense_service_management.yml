@@ -1,0 +1,165 @@
+---
+- name: "OPNsense Service Management"
+  hosts: localhost
+  gather_facts: true
+  serial: 1
+  
+  vars:
+    opnsense_host: "{{ opnsense_host | default('172.23.5.1') }}"
+    opnsense_api_key: "{{ opnsense_api_key | default('YOUR_OPNSENSE_API_KEY') }}"
+    opnsense_api_secret: "{{ opnsense_api_secret | default('YOUR_OPNSENSE_API_SECRET') }}"
+    opnsense_verify_ssl: "{{ opnsense_verify_ssl | default(false) }}"
+    operation: "{{ operation | default('list') }}"
+    service_name: "{{ service_name | default('') }}"
+  
+  pre_tasks:
+    - name: Validate OPNsense connectivity
+      uri:
+        url: "https://{{ opnsense_host }}/api/core/firmware/info"
+        method: GET
+        user: "{{ opnsense_api_key }}"
+        password: "{{ opnsense_api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ opnsense_verify_ssl }}"
+      register: opnsense_connectivity
+      failed_when: false
+    
+    - name: Display connectivity status
+      debug:
+        msg: |
+          🔥 OPNsense Connectivity Test
+          =============================
+          Host: {{ opnsense_host }}
+          Status: {{ 'Connected' if opnsense_connectivity.status == 200 else 'Failed' }}
+          {% if opnsense_connectivity.status == 200 %}
+          Product: {{ opnsense_connectivity.json.product_id }}
+          Version: {{ opnsense_connectivity.json.product_version }}
+          {% else %}
+          Error: {{ opnsense_connectivity.msg }}
+          {% endif %}
+
+  tasks:
+    - name: Get service list
+      uri:
+        url: "https://{{ opnsense_host }}/api/core/service/search"
+        method: POST
+        user: "{{ opnsense_api_key }}"
+        password: "{{ opnsense_api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ opnsense_verify_ssl }}"
+        body_format: json
+        body:
+          current: 1
+          rowCount: 100
+          sort: {}
+          searchPhrase: ""
+      register: service_list
+      when: operation == 'list'
+    
+    - name: Display service list
+      debug:
+        msg: |
+          🔥 OPNsense Services
+          ===================
+          {% if service_list.json is defined and service_list.json.rows is defined %}
+          {% for service in service_list.json.rows %}
+          Service: {{ service.name }}
+          Status: {{ service.status | default('Unknown') }}
+          Description: {{ service.description | default('No description') }}
+          ---
+          {% endfor %}
+          {% else %}
+          Failed to retrieve service list
+          {% endif %}
+      when: operation == 'list'
+    
+    - name: Start service
+      uri:
+        url: "https://{{ opnsense_host }}/api/core/service/start"
+        method: POST
+        user: "{{ opnsense_api_key }}"
+        password: "{{ opnsense_api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ opnsense_verify_ssl }}"
+        body_format: json
+        body:
+          service: "{{ service_name }}"
+      register: start_result
+      when: operation == 'start' and service_name != ''
+    
+    - name: Display start result
+      debug:
+        msg: |
+          🔥 Service Start Result
+          ======================
+          Service: {{ service_name }}
+          Status: {{ 'Started' if start_result.status == 200 else 'Failed' }}
+          {% if start_result.status != 200 %}
+          Error: {{ start_result.msg }}
+          {% endif %}
+      when: operation == 'start' and service_name != ''
+    
+    - name: Stop service
+      uri:
+        url: "https://{{ opnsense_host }}/api/core/service/stop"
+        method: POST
+        user: "{{ opnsense_api_key }}"
+        password: "{{ opnsense_api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ opnsense_verify_ssl }}"
+        body_format: json
+        body:
+          service: "{{ service_name }}"
+      register: stop_result
+      when: operation == 'stop' and service_name != ''
+    
+    - name: Display stop result
+      debug:
+        msg: |
+          🔥 Service Stop Result
+          =====================
+          Service: {{ service_name }}
+          Status: {{ 'Stopped' if stop_result.status == 200 else 'Failed' }}
+          {% if stop_result.status != 200 %}
+          Error: {{ stop_result.msg }}
+          {% endif %}
+      when: operation == 'stop' and service_name != ''
+    
+    - name: Restart service
+      uri:
+        url: "https://{{ opnsense_host }}/api/core/service/restart"
+        method: POST
+        user: "{{ opnsense_api_key }}"
+        password: "{{ opnsense_api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ opnsense_verify_ssl }}"
+        body_format: json
+        body:
+          service: "{{ service_name }}"
+      register: restart_result
+      when: operation == 'restart' and service_name != ''
+    
+    - name: Display restart result
+      debug:
+        msg: |
+          🔥 Service Restart Result
+          =========================
+          Service: {{ service_name }}
+          Status: {{ 'Restarted' if restart_result.status == 200 else 'Failed' }}
+          {% if restart_result.status != 200 %}
+          Error: {{ restart_result.msg }}
+          {% endif %}
+      when: operation == 'restart' and service_name != ''
+
+  post_tasks:
+    - name: Summary
+      debug:
+        msg: |
+          🎯 OPNsense Service Management Complete
+          =====================================
+          Operation: {{ operation }}
+          {% if service_name != '' %}
+          Service: {{ service_name }}
+          {% endif %}
+          Host: {{ opnsense_host }}
+          Status: {{ 'Success' if opnsense_connectivity.status == 200 else 'Failed' }}

@@ -1,0 +1,300 @@
+---
+# OPNsense Firewall Management Playbook
+# API-based firewall rule management with safety controls
+# Operations: List rules, add rules, modify rules, delete rules
+
+- name: "OPNsense Firewall Management - {{ operation | upper }}"
+  hosts: localhost
+  gather_facts: true
+  
+  vars:
+    # OPNsense configuration
+    opnsense_host: "{{ opnsense_fqdn | default('172.23.5.1') }}"
+    opnsense_api_key: "{{ semaphore_opnsense_api_key | mandatory }}"
+    opnsense_api_secret: "{{ semaphore_opnsense_api_secret | mandatory }}"
+    opnsense_verify_ssl: false
+    
+    # Operation parameters
+    operation: "{{ firewall_operation | default('list') }}"  # list, add, modify, delete
+    rule_id: "{{ firewall_rule_id | default('') }}"
+    
+    # Rule configuration
+    rule_source: "{{ rule_source_network | default('') }}"
+    rule_destination: "{{ rule_destination_network | default('') }}"
+    rule_port: "{{ rule_port_number | default('') }}"
+    rule_protocol: "{{ rule_protocol_type | default('tcp') }}"
+    rule_action: "{{ rule_action_type | default('pass') }}"  # pass, block, reject
+    rule_description: "{{ rule_description_text | default('Ansible managed') }}"
+    rule_enabled: "{{ rule_enabled_status | default(true) }}"
+    
+    # Safety configuration
+    protected_rules:
+      - "Default deny rule"
+      - "Allow access to WebGUI"
+      - "Allow access to SSH"
+      - "Block private networks"
+      - "Block bogon networks"
+    
+    # Approved networks for rule creation
+    approved_networks:
+      - "172.23.2.0/24"  # SERVERS
+      - "172.23.3.0/24"  # WORKSTATIONS
+      - "172.23.4.0/24"  # GUEST
+      - "172.23.5.0/24"  # IOT
+      - "172.23.6.0/24"  # GAMING
+      - "172.23.7.0/24"  # MANAGEMENT
+    
+    # Approved ports for rules
+    approved_ports:
+      - "22"      # SSH
+      - "80"      # HTTP
+      - "443"     # HTTPS
+      - "53"      # DNS
+      - "67"      # DHCP
+      - "123"     # NTP
+      - "161"     # SNMP
+      - "3389"    # RDP
+      - "5900"    # VNC
+
+  pre_tasks:
+    - name: Validate OPNsense connectivity
+      uri:
+        url: "https://{{ opnsense_host }}/api/core/firmware/info"
+        method: GET
+        user: "{{ opnsense_api_key }}"
+        password: "{{ opnsense_api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ opnsense_verify_ssl }}"
+      register: opnsense_connectivity
+      failed_when: false
+    
+    - name: Display connectivity status
+      debug:
+        msg: |
+          🔥 OPNsense Connectivity Test
+          =============================
+          Host: {{ opnsense_host }}
+          Status: {{ 'Connected' if opnsense_connectivity.status == 200 else 'Failed' }}
+          {% if opnsense_connectivity.status == 200 %}
+          Product: {{ opnsense_connectivity.json.product_id }}
+          Version: {{ opnsense_connectivity.json.product_version }}
+          {% else %}
+          Error: {{ opnsense_connectivity.msg }}
+          {% endif %}
+
+  tasks:
+    - name: Get current firewall rules
+      uri:
+        url: "https://{{ opnsense_host }}/api/core/firewall/rule/search"
+        method: POST
+        user: "{{ opnsense_api_key }}"
+        password: "{{ opnsense_api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ opnsense_verify_ssl }}"
+        body_format: json
+        body:
+          current: 1
+          rowCount: 100
+          sort: {}
+          searchPhrase: ""
+      register: current_rules
+      when: operation in ['list', 'modify', 'delete']
+    
+    - name: Display current firewall rules
+      debug:
+        msg: |
+          🔥 Current Firewall Rules
+          =========================
+          {% for rule in current_rules.json.rows %}
+          {{ loop.index }}. {{ rule.description | default('No description') }}
+             UUID: {{ rule.uuid | default('N/A') }}
+             Interface: {{ rule.interface | default('any') }}
+             Source: {{ rule.source | default('any') }}
+             Destination: {{ rule.destination | default('any') }}
+             Port: {{ rule.port | default('any') }}
+             Protocol: {{ rule.protocol | default('any') }}
+             Action: {{ rule.action | default('pass') }}
+             Enabled: {{ rule.enabled | default(true) }}
+          {% endfor %}
+      when: operation == 'list' and current_rules.json.rows is defined
+    
+    - name: Validate rule parameters for modification
+      fail:
+        msg: |
+          ❌ Invalid rule parameters:
+          {% if rule_source not in approved_networks %}
+          - Source network '{{ rule_source }}' not in approved list
+          {% endif %}
+          {% if rule_destination not in approved_networks %}
+          - Destination network '{{ rule_destination }}' not in approved list
+          {% endif %}
+          {% if rule_port not in approved_ports %}
+          - Port '{{ rule_port }}' not in approved list
+          {% endif %}
+          {% if rule_action not in ['pass', 'block', 'reject'] %}
+          - Action '{{ rule_action }}' must be pass, block, or reject
+          {% endif %}
+      when: 
+        operation in ['add', 'modify']
+        and (
+          rule_source != '' and rule_source not in approved_networks
+          or rule_destination != '' and rule_destination not in approved_networks
+          or rule_port != '' and rule_port not in approved_ports
+          or rule_action not in ['pass', 'block', 'reject']
+        )
+    
+    - name: Check if rule is protected
+      fail:
+        msg: "❌ Cannot modify protected rule: {{ rule_description }}"
+      when: 
+        operation in ['modify', 'delete']
+        and rule_description in protected_rules
+    
+    - name: Add new firewall rule (Simulation)
+      debug:
+        msg: |
+          🔥 ADDING FIREWALL RULE (SIMULATION)
+          ====================================
+          Description: {{ rule_description }}
+          Source: {{ rule_source }}
+          Destination: {{ rule_destination }}
+          Port: {{ rule_port }}
+          Protocol: {{ rule_protocol }}
+          Action: {{ rule_action }}
+          Enabled: {{ rule_enabled }}
+          
+          ✅ Rule would be added successfully
+          📝 Use 'ansible-playbook --check=false' to apply changes
+      when: operation == 'add'
+    
+    - name: Add new firewall rule (Actual)
+      uri:
+        url: "https://{{ opnsense_host }}/api/core/firewall/rule/add"
+        method: POST
+        user: "{{ opnsense_api_key }}"
+        password: "{{ opnsense_api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ opnsense_verify_ssl }}"
+        body_format: json
+        body:
+          description: "{{ rule_description }}"
+          source:
+            network: "{{ rule_source }}"
+          destination:
+            network: "{{ rule_destination }}"
+            port: "{{ rule_port }}"
+          protocol: "{{ rule_protocol }}"
+          action: "{{ rule_action }}"
+          enabled: "{{ rule_enabled }}"
+      register: add_result
+      when: operation == 'add' and ansible_check_mode == false
+    
+    - name: Display add result
+      debug:
+        msg: |
+          🔥 Firewall Rule Added Successfully
+          ===================================
+          Rule ID: {{ add_result.json.rule_id }}
+          Description: {{ rule_description }}
+          Status: {{ add_result.json.status }}
+      when: operation == 'add' and ansible_check_mode == false and add_result.json.status == 'success'
+    
+    - name: Modify existing firewall rule (Simulation)
+      debug:
+        msg: |
+          🔥 MODIFYING FIREWALL RULE (SIMULATION)
+          ======================================
+          Rule ID: {{ rule_id }}
+          Description: {{ rule_description }}
+          Source: {{ rule_source }}
+          Destination: {{ rule_destination }}
+          Port: {{ rule_port }}
+          Action: {{ rule_action }}
+          
+          ✅ Rule would be modified successfully
+          📝 Use 'ansible-playbook --check=false' to apply changes
+      when: operation == 'modify'
+    
+    - name: Modify existing firewall rule (Actual)
+      uri:
+        url: "https://{{ opnsense_host }}/api/core/firewall/rule/modify/{{ rule_id }}"
+        method: PUT
+        user: "{{ opnsense_api_key }}"
+        password: "{{ opnsense_api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ opnsense_verify_ssl }}"
+        body_format: json
+        body:
+          description: "{{ rule_description }}"
+          source:
+            network: "{{ rule_source }}"
+          destination:
+            network: "{{ rule_destination }}"
+            port: "{{ rule_port }}"
+          protocol: "{{ rule_protocol }}"
+          action: "{{ rule_action }}"
+          enabled: "{{ rule_enabled }}"
+      register: modify_result
+      when: operation == 'modify' and ansible_check_mode == false
+    
+    - name: Display modify result
+      debug:
+        msg: |
+          🔥 Firewall Rule Modified Successfully
+          ======================================
+          Rule ID: {{ rule_id }}
+          Description: {{ rule_description }}
+          Status: {{ modify_result.json.status }}
+      when: operation == 'modify' and ansible_check_mode == false and modify_result.json.status == 'success'
+    
+    - name: Delete firewall rule (Simulation)
+      debug:
+        msg: |
+          🔥 DELETING FIREWALL RULE (SIMULATION)
+          ======================================
+          Rule ID: {{ rule_id }}
+          Description: {{ rule_description }}
+          
+          ✅ Rule would be deleted successfully
+          📝 Use 'ansible-playbook --check=false' to apply changes
+      when: operation == 'delete'
+    
+    - name: Delete firewall rule (Actual)
+      uri:
+        url: "https://{{ opnsense_host }}/api/core/firewall/rule/delete/{{ rule_id }}"
+        method: DELETE
+        user: "{{ opnsense_api_key }}"
+        password: "{{ opnsense_api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ opnsense_verify_ssl }}"
+      register: delete_result
+      when: operation == 'delete' and ansible_check_mode == false
+    
+    - name: Display delete result
+      debug:
+        msg: |
+          🔥 Firewall Rule Deleted Successfully
+          ======================================
+          Rule ID: {{ rule_id }}
+          Status: {{ delete_result.json.status }}
+      when: operation == 'delete' and ansible_check_mode == false and delete_result.json.status == 'success'
+
+  post_tasks:
+    - name: Display operation summary
+      debug:
+        msg: |
+          🔥 OPNsense Firewall Management Complete
+          ========================================
+          Operation: {{ operation | upper }}
+          Host: {{ opnsense_host }}
+          {% if operation == 'list' %}
+          Rules Retrieved: {{ current_rules.json | length }}
+          {% elif operation == 'add' %}
+          New Rule: {{ rule_description }}
+          {% elif operation == 'modify' %}
+          Modified Rule: {{ rule_description }}
+          {% elif operation == 'delete' %}
+          Deleted Rule: {{ rule_description }}
+          {% endif %}
+          
+          ✅ Operation completed successfully

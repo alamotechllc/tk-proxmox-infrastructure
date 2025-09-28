@@ -1,0 +1,136 @@
+---
+- name: "OPNsense System Information"
+  hosts: localhost
+  gather_facts: true
+  serial: 1
+  
+  vars:
+    opnsense_host: "{{ opnsense_host | default('172.23.5.1') }}"
+    opnsense_api_key: "{{ opnsense_api_key | default('YOUR_OPNSENSE_API_KEY') }}"
+    opnsense_api_secret: "{{ opnsense_api_secret | default('YOUR_OPNSENSE_API_SECRET') }}"
+    opnsense_verify_ssl: "{{ opnsense_verify_ssl | default(false) }}"
+    info_type: "{{ info_type | default('system') }}"
+  
+  pre_tasks:
+    - name: Validate OPNsense connectivity
+      uri:
+        url: "https://{{ opnsense_host }}/api/core/firmware/info"
+        method: GET
+        user: "{{ opnsense_api_key }}"
+        password: "{{ opnsense_api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ opnsense_verify_ssl }}"
+      register: opnsense_connectivity
+      failed_when: false
+    
+    - name: Display connectivity status
+      debug:
+        msg: |
+          🔥 OPNsense Connectivity Test
+          =============================
+          Host: {{ opnsense_host }}
+          Status: {{ 'Connected' if opnsense_connectivity.status == 200 else 'Failed' }}
+          {% if opnsense_connectivity.status == 200 %}
+          Product: {{ opnsense_connectivity.json.product_id }}
+          Version: {{ opnsense_connectivity.json.product_version }}
+          {% else %}
+          Error: {{ opnsense_connectivity.msg }}
+          {% endif %}
+
+  tasks:
+    - name: Get system information
+      uri:
+        url: "https://{{ opnsense_host }}/api/core/system/info"
+        method: GET
+        user: "{{ opnsense_api_key }}"
+        password: "{{ opnsense_api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ opnsense_verify_ssl }}"
+      register: system_info
+      when: info_type in ['system', 'all']
+    
+    - name: Display system information
+      debug:
+        msg: |
+          🔥 OPNsense System Information
+          =============================
+          {% if system_info.json is defined %}
+          Hostname: {{ system_info.json.hostname }}
+          Domain: {{ system_info.json.domain }}
+          Timezone: {{ system_info.json.timezone }}
+          Uptime: {{ system_info.json.uptime }}
+          Load Average: {{ system_info.json.load_average }}
+          {% else %}
+          Failed to retrieve system information
+          {% endif %}
+      when: info_type in ['system', 'all']
+    
+    - name: Get firmware information
+      uri:
+        url: "https://{{ opnsense_host }}/api/core/firmware/info"
+        method: GET
+        user: "{{ opnsense_api_key }}"
+        password: "{{ opnsense_api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ opnsense_verify_ssl }}"
+      register: firmware_info
+      when: info_type in ['firmware', 'all']
+    
+    - name: Display firmware information
+      debug:
+        msg: |
+          🔥 OPNsense Firmware Information
+          ================================
+          {% if firmware_info.json is defined %}
+          Product: {{ firmware_info.json.product_id }}
+          Version: {{ firmware_info.json.product_version }}
+          Build: {{ firmware_info.json.product_name }}
+          Architecture: {{ firmware_info.json.product_arch }}
+          {% else %}
+          Failed to retrieve firmware information
+          {% endif %}
+      when: info_type in ['firmware', 'all']
+    
+    - name: Get interface information
+      uri:
+        url: "https://{{ opnsense_host }}/api/core/interfaces/search"
+        method: POST
+        user: "{{ opnsense_api_key }}"
+        password: "{{ opnsense_api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ opnsense_verify_ssl }}"
+        body_format: json
+        body:
+          current: 1
+          rowCount: 100
+          sort: {}
+          searchPhrase: ""
+      register: interface_info
+      when: info_type in ['interfaces', 'all']
+    
+    - name: Display interface information
+      debug:
+        msg: |
+          🔥 OPNsense Interface Information
+          =================================
+          {% if interface_info.json is defined and interface_info.json.rows is defined %}
+          {% for interface in interface_info.json.rows %}
+          Interface: {{ interface.if }}
+          Description: {{ interface.descr | default('No description') }}
+          Status: {{ interface.status | default('Unknown') }}
+          ---
+          {% endfor %}
+          {% else %}
+          Failed to retrieve interface information
+          {% endif %}
+      when: info_type in ['interfaces', 'all']
+
+  post_tasks:
+    - name: Summary
+      debug:
+        msg: |
+          🎯 OPNsense System Information Complete
+          ======================================
+          Information Type: {{ info_type }}
+          Host: {{ opnsense_host }}
+          Status: {{ 'Success' if opnsense_connectivity.status == 200 else 'Failed' }}

@@ -1,0 +1,135 @@
+{
+  "semaphore": {
+    "base_url": "http://172.23.5.22:3000",
+    "username": "admin",
+    "password": "8fewWER8382",
+    "timeout": 30,
+    "retry_attempts": 3
+  },
+  "projects": {
+    "network_infrastructure": {
+      "id": 4,
+      "name": "Network Infrastructure",
+      "description": "Network device automation and management"
+    }
+  },
+  "secrets": {
+    "network_device_credentials": {
+      "name": "Network Device Admin Credentials",
+      "description": "Admin username and password for network devices",
+      "value": "admin\n8fewWER8382"
+    },
+    "network_enable_password": {
+      "name": "Network Enable Password", 
+      "description": "Enable password for Cisco devices",
+      "value": "8fewWER8382"
+    },
+    "opnsense_credentials": {
+      "name": "OPNsense Admin Credentials",
+      "description": "OPNsense firewall admin credentials",
+      "value": "admin\n8fewWER8382"
+    },
+    "network_backup_credentials": {
+      "name": "Network Backup Credentials",
+      "description": "Credentials for network backup operations",
+      "value": "admin\n8fewWER8382"
+    }
+  },
+  "inventories": {
+    "core_network": {
+      "name": "Core Network Devices",
+      "description": "Core network infrastructure devices",
+      "content": {
+        "core_network": {
+          "hosts": {
+            "arista-core-01": {
+              "ansible_host": "172.23.5.1",
+              "device_type": "arista_eos"
+            },
+            "nexus-agg-01": {
+              "ansible_host": "172.23.5.2", 
+              "device_type": "cisco_nxos"
+            }
+          }
+        },
+        "access_switches": {
+          "hosts": {
+            "catalyst-access-01": {
+              "ansible_host": "172.23.5.10",
+              "device_type": "cisco_ios"
+            },
+            "catalyst-access-02": {
+              "ansible_host": "172.23.5.11",
+              "device_type": "cisco_ios"
+            }
+          }
+        },
+        "security": {
+          "hosts": {
+            "opnsense-fw-01": {
+              "ansible_host": "172.23.5.3",
+              "device_type": "opnsense"
+            }
+          }
+        }
+      }
+    }
+  },
+  "templates": {
+    "network_operations": {
+      "name": "Network Operations Template",
+      "description": "Multi-purpose network device management template",
+      "playbook": "templates/network_operations_template.yml",
+      "arguments": [
+        {
+          "name": "operation",
+          "description": "Operation type (backup|vlan_assign|port_enable|port_disable|health_check)",
+          "type": "string",
+          "required": true,
+          "default": "health_check"
+        },
+        {
+          "name": "target_device",
+          "description": "Target device hostname (or 'all' for all devices)",
+          "type": "string",
+          "required": false,
+          "default": "all"
+        },
+        {
+          "name": "port_interface",
+          "description": "Port interface (for port operations)",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "vlan_id",
+          "description": "VLAN ID (for VLAN operations)",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "port_description",
+          "description": "Port description (for port operations)",
+          "type": "string",
+          "required": false,
+          "default": "Managed by Ansible Template"
+        },
+        {
+          "name": "backup_location",
+          "description": "Backup storage location",
+          "type": "string",
+          "required": false,
+          "default": "/opt/network_backups"
+        }
+      ]
+    }
+  },
+  "github_integration": {
+    "enabled": false,
+    "repository_url": "",
+    "branch": "main",
+    "ssh_key_name": "GitHub SSH Key",
+    "playbook_path": "infra/ansible/playbooks/",
+    "inventory_path": "infra/ansible/inventories/"
+  }
+}

@@ -1,0 +1,49 @@
+---
+# Network Switches Inventory
+# Simplified inventory for 3 specific switches
+
+all:
+  children:
+    arista_core:
+      hosts:
+        tks-sw-arista-core-1:
+          ansible_host: 172.23.7.10
+          ansible_user: admin
+          ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+          ansible_network_os: eos
+          ansible_connection: network_cli
+          ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+          
+    cisco_nexus:
+      hosts:
+        tks-sw-cis-nexus-1:
+          ansible_host: 210.141.77.15
+          ansible_user: admin
+          ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+          ansible_network_os: nxos
+          ansible_connection: network_cli
+          ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+          
+    access_switch:
+      hosts:
+        tks-sw-access-1:
+          ansible_host: 172.23.7.20  # Example IP - update with actual
+          ansible_user: admin
+          ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+          ansible_network_os: ios
+          ansible_connection: network_cli
+          ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+
+  vars:
+    # Global network variables
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+    
+    # VLAN definitions
+    vlan_definitions:
+      2: "SERVERS - Server infrastructure (172.23.2.0/24)"
+      3: "WORKSTATIONS - User workstations (172.23.3.0/24)"
+      4: "GUEST - Guest network (172.23.4.0/24)"
+      5: "IOT - IoT devices (172.23.5.0/24)"
+      6: "GAMING - Gaming/entertainment (172.23.6.0/24)"
+      7: "MANAGEMENT - Network management (172.23.7.0/24)"
+

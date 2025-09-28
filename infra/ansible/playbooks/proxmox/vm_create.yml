@@ -1,0 +1,171 @@
+---
+# Proxmox VM Creation Playbook
+# Create new VMs with cloud-init configuration
+
+- name: Create Proxmox Virtual Machine
+  hosts: proxmox_hosts
+  gather_facts: false
+  vars:
+    vm_name: "{{ vm_name | default('test-vm') }}"
+    vm_id: "{{ vm_id | default(9002) }}"
+    vm_cores: "{{ vm_cores | default(2) }}"
+    vm_memory: "{{ vm_memory | default(4096) }}"
+    vm_disk_size: "{{ vm_disk_size | default(40) }}"
+    vm_template: "{{ vm_template | default(9000) }}"
+    vm_network: "{{ vm_network | default('vmbr0') }}"
+    vm_ip: "{{ vm_ip | default('') }}"
+    vm_gateway: "{{ vm_gateway | default('') }}"
+    ssh_key: "{{ ssh_key | default(vault_ssh_public_key) }}"
+    force_recreate: "{{ force_recreate | default(false) }}"
+  
+  tasks:
+    - name: Check if VM already exists
+      uri:
+        url: "{{ proxmox_api_url }}/nodes/{{ proxmox_node }}/qemu/{{ vm_id }}/config"
+        method: GET
+        headers:
+          Authorization: "PVEAPIToken={{ proxmox_username }}:{{ proxmox_token_name }}={{ proxmox_token_value }}"
+        validate_certs: false
+        status_code: [200, 404]
+      register: vm_exists
+      delegate_to: localhost
+    
+    - name: Fail if VM exists and force_recreate is false
+      fail:
+        msg: "VM {{ vm_id }} already exists. Use force_recreate=true to recreate."
+      when: 
+        - vm_exists.status == 200
+        - not force_recreate
+    
+    - name: Stop and destroy existing VM
+      block:
+        - name: Stop VM if running
+          uri:
+            url: "{{ proxmox_api_url }}/nodes/{{ proxmox_node }}/qemu/{{ vm_id }}/status/stop"
+            method: POST
+            headers:
+              Authorization: "PVEAPIToken={{ proxmox_username }}:{{ proxmox_token_name }}={{ proxmox_token_value }}"
+            validate_certs: false
+          delegate_to: localhost
+          ignore_errors: true
+        
+        - name: Wait for VM to stop
+          pause:
+            seconds: 5
+        
+        - name: Destroy VM
+          uri:
+            url: "{{ proxmox_api_url }}/nodes/{{ proxmox_node }}/qemu/{{ vm_id }}"
+            method: DELETE
+            headers:
+              Authorization: "PVEAPIToken={{ proxmox_username }}:{{ proxmox_token_name }}={{ proxmox_token_value }}"
+            validate_certs: false
+          delegate_to: localhost
+          ignore_errors: true
+      when: 
+        - vm_exists.status == 200
+        - force_recreate
+    
+    - name: Check if template exists
+      uri:
+        url: "{{ proxmox_api_url }}/nodes/{{ proxmox_node }}/qemu/{{ vm_template }}/config"
+        method: GET
+        headers:
+          Authorization: "PVEAPIToken={{ proxmox_username }}:{{ proxmox_token_name }}={{ proxmox_token_value }}"
+        validate_certs: false
+        status_code: [200, 404]
+      register: template_exists
+      delegate_to: localhost
+    
+    - name: Fail if template doesn't exist
+      fail:
+        msg: "Template {{ vm_template }} not found on node {{ proxmox_node }}"
+      when: template_exists.status == 404
+    
+    - name: Clone template to create VM
+      uri:
+        url: "{{ proxmox_api_url }}/nodes/{{ proxmox_node }}/qemu/{{ vm_template }}/clone"
+        method: POST
+        headers:
+          Authorization: "PVEAPIToken={{ proxmox_username }}:{{ proxmox_token_name }}={{ proxmox_token_value }}"
+          Content-Type: application/json
+        body_format: json
+        body:
+          newid: "{{ vm_id }}"
+          name: "{{ vm_name }}"
+          memory: "{{ vm_memory }}"
+          cores: "{{ vm_cores }}"
+        validate_certs: false
+      register: clone_result
+      delegate_to: localhost
+    
+    - name: Wait for clone to complete
+      pause:
+        seconds: 10
+    
+    - name: Configure VM settings
+      uri:
+        url: "{{ proxmox_api_url }}/nodes/{{ proxmox_node }}/qemu/{{ vm_id }}/config"
+        method: PUT
+        headers:
+          Authorization: "PVEAPIToken={{ proxmox_username }}:{{ proxmox_token_name }}={{ proxmox_token_value }}"
+          Content-Type: application/json
+        body_format: json
+        body:
+          scsi0: "{{ proxmox_storage }}:{{ vm_disk_size }}"
+          net0: "virtio,bridge={{ vm_network }}"
+          agent: "1"
+          ciuser: "ansible"
+          cipassword: ""
+          sshkeys: "{{ ssh_key }}"
+          {% if vm_ip != '' %}
+          ipconfig0: "ip={{ vm_ip }}/24,gw={{ vm_gateway }}"
+          {% endif %}
+        validate_certs: false
+      register: config_result
+      delegate_to: localhost
+    
+    - name: Start VM
+      uri:
+        url: "{{ proxmox_api_url }}/nodes/{{ proxmox_node }}/qemu/{{ vm_id }}/status/start"
+        method: POST
+        headers:
+          Authorization: "PVEAPIToken={{ proxmox_username }}:{{ proxmox_token_name }}={{ proxmox_token_value }}"
+        validate_certs: false
+      register: start_result
+      delegate_to: localhost
+    
+    - name: Wait for VM to start
+      pause:
+        seconds: 15
+    
+    - name: Get VM status
+      uri:
+        url: "{{ proxmox_api_url }}/nodes/{{ proxmox_node }}/qemu/{{ vm_id }}/status/current"
+        method: GET
+        headers:
+          Authorization: "PVEAPIToken={{ proxmox_username }}:{{ proxmox_token_name }}={{ proxmox_token_value }}"
+        validate_certs: false
+      register: vm_status
+      delegate_to: localhost
+    
+    - name: Display VM creation results
+      debug:
+        msg: |
+          VM Creation Complete!
+          ===================
+          VM ID: {{ vm_id }}
+          Name: {{ vm_name }}
+          Status: {{ vm_status.json.data.status }}
+          CPU: {{ vm_cores }} cores
+          Memory: {{ vm_memory }}MB
+          Disk: {{ vm_disk_size }}GB
+          Network: {{ vm_network }}
+          {% if vm_ip != '' %}
+          IP: {{ vm_ip }}
+          {% endif %}
+          
+          Next steps:
+          1. Wait for cloud-init to complete (2-3 minutes)
+          2. SSH to the VM: ssh ansible@<vm-ip>
+          3. Verify the VM is properly configured

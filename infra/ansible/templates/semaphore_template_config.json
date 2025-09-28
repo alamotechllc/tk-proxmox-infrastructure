@@ -1,0 +1,129 @@
+{
+  "template_configuration": {
+    "name": "Network Operations Template",
+    "description": "Multi-purpose network device management template using Semaphore secrets as extra variables",
+    "playbook": "templates/network_operations_template.yml",
+    "inventory_id": 7,
+    "key_id": 4,
+    "arguments": [
+      {
+        "name": "operation",
+        "description": "Operation type (backup|vlan_assign|port_enable|port_disable|health_check)",
+        "type": "string",
+        "required": true,
+        "default": "health_check"
+      },
+      {
+        "name": "target_device",
+        "description": "Target device hostname (or 'all' for all devices)",
+        "type": "string",
+        "required": false,
+        "default": "all"
+      },
+      {
+        "name": "port_interface",
+        "description": "Port interface (for port operations)",
+        "type": "string",
+        "required": false
+      },
+      {
+        "name": "vlan_id",
+        "description": "VLAN ID (for VLAN operations)",
+        "type": "string",
+        "required": false
+      },
+      {
+        "name": "port_description",
+        "description": "Port description (for port operations)",
+        "type": "string",
+        "required": false,
+        "default": "Managed by Ansible Template"
+      },
+      {
+        "name": "backup_location",
+        "description": "Backup storage location",
+        "type": "string",
+        "required": false,
+        "default": "/opt/network_backups"
+      }
+    ],
+    "secrets_extra_vars": {
+      "semaphore_admin_user": "admin",
+      "semaphore_admin_password": "{{ .Secret \"Network Device Admin Credentials\" }}",
+      "semaphore_enable_password": "{{ .Secret \"Network Enable Password\" }}"
+    },
+    "allow_override_args_in_task": true,
+    "suppress_success_alerts": false,
+    "vault_password": "",
+    "tags": ["network", "automation", "security"]
+  },
+  "semaphore_secrets_required": [
+    {
+      "name": "Network Device Admin Credentials",
+      "description": "Admin username and password for network devices",
+      "value": "admin\n8fewWER8382",
+      "type": "text"
+    },
+    {
+      "name": "Network Enable Password", 
+      "description": "Enable password for Cisco devices",
+      "value": "8fewWER8382",
+      "type": "text"
+    }
+  ],
+  "template_execution_examples": {
+    "health_check": {
+      "description": "Test device connectivity using secrets",
+      "extra_vars": {
+        "operation": "health_check",
+        "target_device": "all"
+      },
+      "secrets": {
+        "semaphore_admin_user": "admin",
+        "semaphore_admin_password": "{{ .Secret \"Network Device Admin Credentials\" }}",
+        "semaphore_enable_password": "{{ .Secret \"Network Enable Password\" }}"
+      }
+    },
+    "vlan_assign": {
+      "description": "Assign port to VLAN using secrets",
+      "extra_vars": {
+        "operation": "vlan_assign",
+        "target_device": "catalyst-access-01",
+        "port_interface": "GigabitEthernet1/0/10",
+        "vlan_id": "20",
+        "port_description": "John Smith Workstation"
+      },
+      "secrets": {
+        "semaphore_admin_user": "admin",
+        "semaphore_admin_password": "{{ .Secret \"Network Device Admin Credentials\" }}",
+        "semaphore_enable_password": "{{ .Secret \"Network Enable Password\" }}"
+      }
+    },
+    "backup": {
+      "description": "Backup device configurations using secrets",
+      "extra_vars": {
+        "operation": "backup",
+        "target_device": "all",
+        "backup_location": "/opt/network_backups"
+      },
+      "secrets": {
+        "semaphore_admin_user": "admin",
+        "semaphore_admin_password": "{{ .Secret \"Network Device Admin Credentials\" }}",
+        "semaphore_enable_password": "{{ .Secret \"Network Enable Password\" }}"
+      }
+    }
+  },
+  "security_benefits": {
+    "credential_protection": "Passwords never stored in playbooks or logs",
+    "secret_rotation": "Easy to rotate credentials without changing code",
+    "audit_trail": "All secret usage tracked by Semaphore",
+    "access_control": "Secrets can be restricted by user/team",
+    "encryption": "Secrets encrypted at rest in Semaphore database"
+  },
+  "implementation_notes": {
+    "semaphore_template_creation": "Create template in Semaphore web interface using this configuration",
+    "secret_management": "Ensure required secrets exist before template execution",
+    "fallback_credentials": "Template includes default fallbacks for testing",
+    "log_protection": "All credential variables marked with no_log: true"
+  }
+}

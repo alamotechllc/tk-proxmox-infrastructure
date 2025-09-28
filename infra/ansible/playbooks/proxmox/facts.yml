@@ -1,0 +1,213 @@
+---
+# Proxmox Facts Collection Playbook
+# Gather comprehensive information about Proxmox infrastructure
+
+- name: Gather Proxmox Infrastructure Facts
+  hosts: proxmox_hosts
+  gather_facts: false
+  tasks:
+    - name: Get Proxmox version information
+      uri:
+        url: "{{ proxmox_api_url }}/version"
+        method: GET
+        headers:
+          Authorization: "PVEAPIToken={{ proxmox_username }}:{{ proxmox_token_name }}={{ proxmox_token_value }}"
+        validate_certs: false
+      register: proxmox_version
+      delegate_to: localhost
+    
+    - name: Get cluster status
+      uri:
+        url: "{{ proxmox_api_url }}/cluster/status"
+        method: GET
+        headers:
+          Authorization: "PVEAPIToken={{ proxmox_username }}:{{ proxmox_token_name }}={{ proxmox_token_value }}"
+        validate_certs: false
+      register: cluster_status
+      delegate_to: localhost
+    
+    - name: Get all nodes
+      uri:
+        url: "{{ proxmox_api_url }}/nodes"
+        method: GET
+        headers:
+          Authorization: "PVEAPIToken={{ proxmox_username }}:{{ proxmox_token_name }}={{ proxmox_token_value }}"
+        validate_certs: false
+      register: proxmox_nodes
+      delegate_to: localhost
+    
+    - name: Get storage information
+      uri:
+        url: "{{ proxmox_api_url }}/storage"
+        method: GET
+        headers:
+          Authorization: "PVEAPIToken={{ proxmox_username }}:{{ proxmox_token_name }}={{ proxmox_token_value }}"
+        validate_certs: false
+      register: storage_info
+      delegate_to: localhost
+    
+    - name: Get network configuration
+      uri:
+        url: "{{ proxmox_api_url }}/cluster/network"
+        method: GET
+        headers:
+          Authorization: "PVEAPIToken={{ proxmox_username }}:{{ proxmox_token_name }}={{ proxmox_token_value }}"
+        validate_certs: false
+      register: network_config
+      delegate_to: localhost
+    
+    - name: Get all VMs for each node
+      uri:
+        url: "{{ proxmox_api_url }}/nodes/{{ item.node }}/qemu"
+        method: GET
+        headers:
+          Authorization: "PVEAPIToken={{ proxmox_username }}:{{ proxmox_token_name }}={{ proxmox_token_value }}"
+        validate_certs: false
+      register: node_vms
+      loop: "{{ proxmox_nodes.json.data | selectattr('type', 'equalto', 'node') | list }}"
+      delegate_to: localhost
+    
+    - name: Get all containers for each node
+      uri:
+        url: "{{ proxmox_api_url }}/nodes/{{ item.node }}/lxc"
+        method: GET
+        headers:
+          Authorization: "PVEAPIToken={{ proxmox_username }}:{{ proxmox_token_name }}={{ proxmox_token_value }}"
+        validate_certs: false
+      register: node_containers
+      loop: "{{ proxmox_nodes.json.data | selectattr('type', 'equalto', 'node') | list }}"
+      delegate_to: localhost
+      ignore_errors: true
+    
+    - name: Display Proxmox version
+      debug:
+        msg: "Proxmox Version: {{ proxmox_version.json.data.version }}"
+    
+    - name: Display cluster status
+      debug:
+        msg: |
+          Cluster Status:
+          {% for item in cluster_status.json.data %}
+          - {{ item.type }}: {{ item.name }} ({{ item.status }})
+          {% endfor %}
+    
+    - name: Display nodes information
+      debug:
+        msg: |
+          Proxmox Nodes:
+          {% for node in proxmox_nodes.json.data %}
+          {% if node.type == 'node' %}
+          - {{ node.node }}: {{ node.status }}
+            CPU: {{ node.cpu }} cores
+            Memory: {{ node.maxmem | int / 1024 / 1024 / 1024 | round(2) }}GB
+            Disk: {{ node.maxdisk | int / 1024 / 1024 / 1024 | round(2) }}GB
+          {% endif %}
+          {% endfor %}
+    
+    - name: Display storage information
+      debug:
+        msg: |
+          Storage Pools:
+          {% for storage in storage_info.json.data %}
+          - {{ storage.storage }}: {{ storage.type }} ({{ storage.status }})
+            Content: {{ storage.content | join(', ') }}
+            {% if storage.avail is defined %}
+            Available: {{ storage.avail | int / 1024 / 1024 / 1024 | round(2) }}GB
+            {% endif %}
+          {% endfor %}
+    
+    - name: Display network configuration
+      debug:
+        msg: |
+          Network Configuration:
+          {% for network in network_config.json.data %}
+          - {{ network.iface }}: {{ network.type }}
+            {% if network.cidr is defined %}
+            CIDR: {{ network.cidr }}
+            {% endif %}
+            {% if network.bridge is defined %}
+            Bridge: {{ network.bridge }}
+            {% endif %}
+          {% endfor %}
+    
+    - name: Display VMs information
+      debug:
+        msg: |
+          Virtual Machines:
+          {% for node_result in node_vms.results %}
+          Node: {{ node_result.item.node }}
+          {% for vm in node_result.json.data %}
+          - VM {{ vm.vmid }}: {{ vm.name }}
+            Status: {{ vm.status }}
+            CPU: {{ vm.cpus }} cores
+            Memory: {{ vm.maxmem | int / 1024 | round(2) }}MB
+            Disk: {{ vm.maxdisk | int / 1024 / 1024 / 1024 | round(2) }}GB
+            Template: {{ 'Yes' if vm.template == 1 else 'No' }}
+          {% endfor %}
+          {% endfor %}
+    
+    - name: Display containers information
+      debug:
+        msg: |
+          Containers:
+          {% for node_result in node_containers.results %}
+          Node: {{ node_result.item.node }}
+          {% for container in node_result.json.data %}
+          - CT {{ container.vmid }}: {{ container.name }}
+            Status: {{ container.status }}
+            CPU: {{ container.cpus }} cores
+            Memory: {{ container.maxmem | int / 1024 | round(2) }}MB
+            Disk: {{ container.maxdisk | int / 1024 / 1024 / 1024 | round(2) }}GB
+          {% endfor %}
+          {% endfor %}
+      when: node_containers is defined
+    
+    - name: Save facts to file
+      copy:
+        content: |
+          # Proxmox Infrastructure Facts
+          Generated: {{ ansible_date_time.iso8601 }}
+          
+          ## Proxmox Version
+          Version: {{ proxmox_version.json.data.version }}
+          
+          ## Cluster Status
+          {% for item in cluster_status.json.data %}
+          - {{ item.type }}: {{ item.name }} ({{ item.status }})
+          {% endfor %}
+          
+          ## Nodes
+          {% for node in proxmox_nodes.json.data %}
+          {% if node.type == 'node' %}
+          - {{ node.node }}: {{ node.status }}
+            CPU: {{ node.cpu }} cores
+            Memory: {{ node.maxmem | int / 1024 / 1024 / 1024 | round(2) }}GB
+            Disk: {{ node.maxdisk | int / 1024 / 1024 / 1024 | round(2) }}GB
+          {% endif %}
+          {% endfor %}
+          
+          ## Storage
+          {% for storage in storage_info.json.data %}
+          - {{ storage.storage }}: {{ storage.type }} ({{ storage.status }})
+            Content: {{ storage.content | join(', ') }}
+            {% if storage.avail is defined %}
+            Available: {{ storage.avail | int / 1024 / 1024 / 1024 | round(2) }}GB
+            {% endif %}
+          {% endfor %}
+          
+          ## VMs
+          {% for node_result in node_vms.results %}
+          Node: {{ node_result.item.node }}
+          {% for vm in node_result.json.data %}
+          - VM {{ vm.vmid }}: {{ vm.name }}
+            Status: {{ vm.status }}
+            CPU: {{ vm.cpus }} cores
+            Memory: {{ vm.maxmem | int / 1024 | round(2) }}MB
+            Disk: {{ vm.maxdisk | int / 1024 / 1024 / 1024 | round(2) }}GB
+            Template: {{ 'Yes' if vm.template == 1 else 'No' }}
+          {% endfor %}
+          {% endfor %}
+        dest: "{{ playbook_dir }}/../../facts/proxmox-facts-{{ ansible_date_time.date }}.md"
+        mode: '0644'
+      delegate_to: localhost
+      run_once: true

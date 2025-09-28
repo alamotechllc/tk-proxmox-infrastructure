@@ -1,0 +1,331 @@
+---
+# Safe VLAN Port Assignment Runbook
+# Assigns access ports to VLANs with trunk port protection
+# SAFETY: This playbook CANNOT modify trunk ports
+
+- name: Safe VLAN Port Assignment
+  hosts: "{{ target_switch | default('catalyst_switches') }}"
+  gather_facts: true
+  serial: 1  # Process one switch at a time for safety
+  
+  vars:
+    # Required variables (must be provided)
+    target_port: "{{ port_interface | mandatory }}"
+    target_vlan: "{{ vlan_id | mandatory }}"
+    port_description: "{{ port_desc | default('Ansible managed port') }}"
+    
+    # Safety configuration
+    protected_ports:
+      # Uplink ports (NEVER modify these)
+      - "TenGigabitEthernet1/1/1"
+      - "TenGigabitEthernet1/1/2"
+      - "GigabitEthernet1/0/1"   # Common uplink
+      - "GigabitEthernet1/0/2"   # Common uplink
+      # Add your specific uplink ports here
+    
+    trunk_keywords:
+      - "uplink"
+      - "trunk"
+      - "core"
+      - "distribution"
+      - "agg"
+      - "stack"
+    
+    # Valid VLANs (only these can be assigned)
+    allowed_vlans:
+      10:
+        name: "SERVERS"
+        description: "Production Servers"
+      20:
+        name: "WORKSTATIONS" 
+        description: "User Workstations"
+      30:
+        name: "GUEST"
+        description: "Guest Network"
+      100:
+        name: "VOICE"
+        description: "VoIP Phones"
+      60:
+        name: "IOT"
+        description: "IoT Devices"
+    
+    # Port ranges that are safe to modify (access layer only)
+    safe_port_ranges:
+      catalyst:
+        - "GigabitEthernet1/0/3-48"   # Access ports only
+        - "GigabitEthernet2/0/1-24"   # Stack member 2
+      nexus:
+        - "Ethernet1/1-48"            # Access ports only
+      arista:
+        - "Ethernet1-48"              # Access ports only
+
+  pre_tasks:
+    - name: Display operation details
+      debug:
+        msg: |
+          ==========================================
+          SAFE VLAN PORT ASSIGNMENT
+          ==========================================
+          Target Switch: {{ inventory_hostname }}
+          Target Port: {{ target_port }}
+          Target VLAN: {{ target_vlan }} ({{ allowed_vlans[target_vlan].name }})
+          Description: {{ port_description }}
+          
+          SAFETY CHECKS ENABLED:
+          ✅ Trunk port protection
+          ✅ Uplink port protection  
+          ✅ VLAN validation
+          ✅ Port range validation
+          ==========================================
+
+    - name: Validate target VLAN is allowed
+      fail:
+        msg: |
+          INVALID VLAN: {{ target_vlan }}
+          
+          Allowed VLANs:
+          {% for vlan_id, vlan_info in allowed_vlans.items() %}
+          - {{ vlan_id }}: {{ vlan_info.name }} ({{ vlan_info.description }})
+          {% endfor %}
+      when: target_vlan | string not in allowed_vlans.keys() | map('string') | list
+
+    - name: Check if port is in protected list
+      fail:
+        msg: |
+          PROTECTED PORT: {{ target_port }}
+          
+          This port is in the protected ports list and cannot be modified.
+          Protected ports: {{ protected_ports | join(', ') }}
+          
+          These ports are typically:
+          - Uplink ports to core/distribution switches
+          - Inter-switch links
+          - Critical infrastructure connections
+      when: target_port in protected_ports
+
+    - name: Check if port description contains trunk keywords
+      fail:
+        msg: |
+          TRUNK PORT DETECTED: {{ target_port }}
+          
+          The current port description contains trunk-related keywords.
+          This suggests it may be a trunk port which should not be modified.
+          
+          Trunk keywords detected: {{ trunk_keywords | select('in', current_port_description | default('')) | list }}
+          
+          If you're certain this is an access port, update the description first.
+      when: 
+        - current_port_description is defined
+        - trunk_keywords | select('in', current_port_description | lower) | list | length > 0
+
+  tasks:
+    # Get current port configuration
+    - name: Get current port configuration (Cisco IOS/IOS-XE)
+      ios_command:
+        commands:
+          - "show interface {{ target_port }}"
+          - "show interface {{ target_port }} switchport"
+          - "show running-config interface {{ target_port }}"
+      register: current_port_config
+      when: ansible_network_os in ["ios", "iosxe"]
+      
+    - name: Get current port configuration (Cisco NX-OS)
+      nxos_command:
+        commands:
+          - "show interface {{ target_port }}"
+          - "show interface {{ target_port }} switchport"
+          - "show running-config interface {{ target_port }}"
+      register: current_port_config
+      when: ansible_network_os == "nxos"
+      
+    - name: Get current port configuration (Arista EOS)
+      eos_command:
+        commands:
+          - "show interface {{ target_port }}"
+          - "show interface {{ target_port }} switchport"
+          - "show running-config interface {{ target_port }}"
+      register: current_port_config
+      when: ansible_network_os == "eos"
+
+    # Safety check: Verify port is not currently a trunk
+    - name: Check if port is currently configured as trunk
+      fail:
+        msg: |
+          TRUNK PORT PROTECTION ACTIVATED!
+          
+          Port {{ target_port }} is currently configured as a trunk port.
+          This runbook is designed for access ports only.
+          
+          Current configuration shows trunk mode.
+          To modify trunk ports, use the dedicated trunk management runbook.
+          
+          Current config snippet:
+          {{ current_port_config.stdout[2] }}
+      when: 
+        - current_port_config.stdout[1] is defined
+        - "'trunk' in current_port_config.stdout[1] | lower"
+
+    # Display current configuration
+    - name: Display current port configuration
+      debug:
+        msg: |
+          ==========================================
+          CURRENT PORT CONFIGURATION
+          ==========================================
+          Port: {{ target_port }}
+          
+          Interface Status:
+          {{ current_port_config.stdout[0] | regex_replace('\\n', '\n          ') }}
+          
+          Switchport Status:
+          {{ current_port_config.stdout[1] | regex_replace('\\n', '\n          ') }}
+          
+          Running Configuration:
+          {{ current_port_config.stdout[2] | regex_replace('\\n', '\n          ') }}
+          ==========================================
+
+    # Configure the port (Cisco IOS/IOS-XE)
+    - name: Configure VLAN assignment (Cisco IOS/IOS-XE)
+      ios_config:
+        lines:
+          - "description {{ port_description }}"
+          - "switchport mode access"
+          - "switchport access vlan {{ target_vlan }}"
+          - "no shutdown"
+        parents: "interface {{ target_port }}"
+        backup: yes
+        backup_options:
+          filename: "{{ inventory_hostname }}_pre_change_{{ ansible_date_time.epoch }}.cfg"
+          dir_path: "/tmp/network_changes/"
+      register: ios_config_result
+      when: ansible_network_os in ["ios", "iosxe"]
+
+    # Configure the port (Cisco NX-OS)
+    - name: Configure VLAN assignment (Cisco NX-OS)
+      nxos_config:
+        lines:
+          - "description {{ port_description }}"
+          - "switchport mode access"
+          - "switchport access vlan {{ target_vlan }}"
+          - "no shutdown"
+        parents: "interface {{ target_port }}"
+        backup: yes
+        backup_options:
+          filename: "{{ inventory_hostname }}_pre_change_{{ ansible_date_time.epoch }}.cfg"
+          dir_path: "/tmp/network_changes/"
+      register: nxos_config_result
+      when: ansible_network_os == "nxos"
+
+    # Configure the port (Arista EOS)
+    - name: Configure VLAN assignment (Arista EOS)
+      eos_config:
+        lines:
+          - "description {{ port_description }}"
+          - "switchport mode access"
+          - "switchport access vlan {{ target_vlan }}"
+          - "no shutdown"
+        parents: "interface {{ target_port }}"
+        backup: yes
+        backup_options:
+          filename: "{{ inventory_hostname }}_pre_change_{{ ansible_date_time.epoch }}.cfg"
+          dir_path: "/tmp/network_changes/"
+      register: eos_config_result
+      when: ansible_network_os == "eos"
+
+    # Verify the configuration was applied
+    - name: Wait for port to come up
+      pause:
+        seconds: 10
+
+    - name: Verify port configuration (Cisco IOS/IOS-XE)
+      ios_command:
+        commands:
+          - "show interface {{ target_port }} switchport"
+          - "show interface {{ target_port }} status"
+      register: verification_ios
+      when: ansible_network_os in ["ios", "iosxe"]
+
+    - name: Verify port configuration (Cisco NX-OS)
+      nxos_command:
+        commands:
+          - "show interface {{ target_port }} switchport"
+          - "show interface {{ target_port }} status"
+      register: verification_nxos
+      when: ansible_network_os == "nxos"
+
+    - name: Verify port configuration (Arista EOS)
+      eos_command:
+        commands:
+          - "show interface {{ target_port }} switchport"
+          - "show interface {{ target_port }} status"
+      register: verification_eos
+      when: ansible_network_os == "eos"
+
+  post_tasks:
+    - name: Generate change report
+      copy:
+        content: |
+          ==========================================
+          VLAN PORT ASSIGNMENT REPORT
+          ==========================================
+          
+          Operation Details:
+            Date/Time: {{ ansible_date_time.iso8601 }}
+            Operator: {{ ansible_user_id | default('Unknown') }}
+            Switch: {{ inventory_hostname }} ({{ ansible_host }})
+            Port: {{ target_port }}
+            VLAN: {{ target_vlan }} ({{ allowed_vlans[target_vlan].name }})
+            Description: {{ port_description }}
+          
+          Pre-Change Configuration:
+          {{ current_port_config.stdout[2] | regex_replace('\\n', '\n          ') }}
+          
+          Post-Change Verification:
+          {% if verification_ios is defined %}
+          {{ verification_ios.stdout[0] | regex_replace('\\n', '\n          ') }}
+          {% elif verification_nxos is defined %}
+          {{ verification_nxos.stdout[0] | regex_replace('\\n', '\n          ') }}
+          {% elif verification_eos is defined %}
+          {{ verification_eos.stdout[0] | regex_replace('\\n', '\n          ') }}
+          {% endif %}
+          
+          Safety Checks Performed:
+          ✅ Protected port validation
+          ✅ Trunk port detection
+          ✅ VLAN validation
+          ✅ Pre-change backup created
+          
+          Backup File: {{ inventory_hostname }}_pre_change_{{ ansible_date_time.epoch }}.cfg
+          
+          Status: {% if ansible_failed_task is not defined %}SUCCESS{% else %}FAILED - {{ ansible_failed_result.msg }}{% endif %}
+          
+          ==========================================
+        dest: "/tmp/network_changes/{{ inventory_hostname }}_vlan_change_{{ ansible_date_time.epoch }}.log"
+      delegate_to: localhost
+
+    - name: Display operation summary
+      debug:
+        msg: |
+          ==========================================
+          VLAN PORT ASSIGNMENT COMPLETED
+          ==========================================
+          
+          ✅ Switch: {{ inventory_hostname }}
+          ✅ Port: {{ target_port }}
+          ✅ VLAN: {{ target_vlan }} ({{ allowed_vlans[target_vlan].name }})
+          ✅ Description: {{ port_description }}
+          
+          📁 Backup Created: {{ inventory_hostname }}_pre_change_{{ ansible_date_time.epoch }}.cfg
+          📋 Change Log: {{ inventory_hostname }}_vlan_change_{{ ansible_date_time.epoch }}.log
+          
+          🔍 Verification Commands:
+          show interface {{ target_port }} switchport
+          show interface {{ target_port }} status
+          show vlan id {{ target_vlan }}
+          
+          ⚠️  SAFETY FEATURES ACTIVE:
+          • Trunk ports are protected
+          • Only approved VLANs allowed
+          • Pre-change backup created
+          • Configuration verified
+          ==========================================

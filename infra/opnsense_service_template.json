@@ -1,0 +1,31 @@
+{
+  "name": "OPNsense Service Management",
+  "description": "Monitor and manage OPNsense services",
+  "playbook": "playbooks/network/opnsense_service_management.yml",
+  "inventory": "inventories/opnsense.yml",
+  "survey_vars": [
+    {
+      "name": "operation",
+      "description": "Service operation to perform",
+      "type": "enum",
+      "choices": [
+        "list",
+        "status",
+        "start",
+        "stop",
+        "restart"
+      ],
+      "default": "list"
+    },
+    {
+      "name": "service_name",
+      "description": "Service name (for start/stop/restart operations)",
+      "type": "string",
+      "default": ""
+    }
+  ],
+  "extra_vars": {
+    "opnsense_host": "172.23.5.1",
+    "opnsense_verify_ssl": "false"
+  }
+}

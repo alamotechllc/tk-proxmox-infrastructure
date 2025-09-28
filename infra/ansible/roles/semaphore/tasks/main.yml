@@ -1,0 +1,132 @@
+---
+# Ansible Semaphore Installation Role
+# This role deploys Semaphore with Docker Compose inside a VM
+
+- name: Update package cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  become: true
+
+- name: Install required packages
+  apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+      - lsb-release
+      - python3-pip
+    state: present
+  become: true
+
+- name: Add Docker GPG key
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+  become: true
+
+- name: Add Docker repository
+  apt_repository:
+    repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+    state: present
+  become: true
+
+- name: Install Docker and Docker Compose
+  apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose-plugin
+    state: present
+    update_cache: yes
+  become: true
+
+- name: Add user to docker group
+  user:
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: yes
+  become: true
+
+- name: Start and enable Docker service
+  systemd:
+    name: docker
+    state: started
+    enabled: yes
+  become: true
+
+- name: Create Semaphore directory structure
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: docker
+    mode: '0755'
+  become: true
+  loop:
+    - /opt/semaphore
+    - /opt/semaphore/config
+    - /opt/semaphore/db
+
+- name: Generate Docker Compose file
+  template:
+    src: docker-compose.yml.j2
+    dest: /opt/semaphore/docker-compose.yml
+    owner: "{{ ansible_user }}"
+    group: docker
+    mode: '0644'
+  become: true
+  notify: restart semaphore
+
+- name: Generate systemd service file
+  template:
+    src: semaphore-compose.service.j2
+    dest: /etc/systemd/system/semaphore-compose.service
+    mode: '0644'
+  become: true
+  notify: 
+    - reload systemd
+    - restart semaphore
+
+- name: Reload systemd daemon
+  systemd:
+    daemon_reload: yes
+  become: true
+
+- name: Enable and start Semaphore service
+  systemd:
+    name: semaphore-compose
+    state: started
+    enabled: yes
+  become: true
+
+- name: Wait for Semaphore to be ready
+  uri:
+    url: "http://localhost:3000/api/ping"
+    method: GET
+  register: semaphore_health
+  until: semaphore_health.status == 200
+  retries: 30
+  delay: 10
+  ignore_errors: yes
+
+- name: Display Semaphore access information
+  debug:
+    msg: |
+      ========================================
+      Ansible Semaphore Deployment Complete!
+      ========================================
+      
+      Access URL: http://{{ ansible_host }}:3000
+      Admin User: {{ semaphore_admin_user }}
+      Admin Email: {{ semaphore_admin_email }}
+      Admin Password: {{ semaphore_admin_password }}
+      
+      Service Status:
+      - systemctl status semaphore-compose
+      - docker compose -f /opt/semaphore/docker-compose.yml ps
+      
+      Data Location: /opt/semaphore/
+      ========================================

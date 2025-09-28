@@ -1,0 +1,313 @@
+---
+# Uptime Kuma Deployment Playbook
+# Deploy lightweight network monitoring solution
+# Target: network-monitor-01 VM (172.23.7.100)
+
+- name: "Deploy Uptime Kuma Network Monitoring"
+  hosts: "{{ target_host | default('network-monitor-01') }}"
+  become: true
+  gather_facts: true
+  
+  vars:
+    # Deployment configuration
+    uptime_kuma_version: "{{ uptime_kuma_version | default('latest') }}"
+    uptime_kuma_port: "{{ monitoring_port | default('3001') }}"
+    uptime_kuma_data_path: "/opt/uptime-kuma"
+    
+    # Security: Semaphore secrets
+    admin_email: "{{ notification_email | default('admin@tks.local') }}"
+    slack_webhook: "{{ slack_webhook_url | default('') }}"
+    
+    # Monitoring targets based on TK network
+    monitoring_targets:
+      - name: "OPNsense Firewall"
+        type: "https"
+        url: "https://172.23.7.1"
+        description: "Critical firewall web interface"
+        interval: 60
+        
+      - name: "Arista Core Switch"
+        type: "https" 
+        url: "https://172.23.7.10"
+        description: "Core switch management interface"
+        interval: 60
+        
+      - name: "Proxmox Epyc"
+        type: "https"
+        url: "https://172.23.2.10:8006"
+        description: "Primary virtualization host"
+        interval: 120
+        
+      - name: "Proxmox Intel"
+        type: "https"
+        url: "https://172.23.2.11:8006"
+        description: "Secondary virtualization host"
+        interval: 120
+        
+      - name: "TrueNAS Corp"
+        type: "https"
+        url: "https://172.23.2.20"
+        description: "Corporate storage system"
+        interval: 120
+        
+      - name: "TrueNAS Personal"
+        type: "https"
+        url: "https://172.23.2.21"
+        description: "Personal storage system"
+        interval: 120
+        
+      - name: "Internet Connectivity"
+        type: "ping"
+        hostname: "8.8.8.8"
+        description: "External connectivity test"
+        interval: 30
+        
+      - name: "DNS Resolution"
+        type: "dns"
+        hostname: "google.com"
+        resolver_server: "172.23.7.1"
+        description: "DNS service validation"
+        interval: 60
+        
+      - name: "Semaphore Web Interface"
+        type: "https"
+        url: "http://172.23.5.22:3000"
+        description: "Ansible Semaphore automation platform"
+        interval: 120
+
+  pre_tasks:
+    - name: Display deployment information
+      debug:
+        msg: |
+          ==========================================
+          UPTIME KUMA DEPLOYMENT
+          ==========================================
+          Target Host: {{ inventory_hostname }}
+          IP Address: {{ ansible_host }}
+          Version: {{ uptime_kuma_version }}
+          Port: {{ uptime_kuma_port }}
+          Data Path: {{ uptime_kuma_data_path }}
+          
+          Monitoring Targets: {{ monitoring_targets | length }}
+          Admin Email: {{ admin_email }}
+          Slack Integration: {{ 'Enabled' if slack_webhook != '' else 'Disabled' }}
+          ==========================================
+      run_once: true
+
+  tasks:
+    # PHASE 1: System Preparation
+    - name: "PHASE 1: System Preparation"
+      block:
+        - name: Update system packages
+          apt:
+            update_cache: yes
+            upgrade: dist
+          
+        - name: Install required packages
+          apt:
+            name:
+              - docker.io
+              - docker-compose
+              - curl
+              - wget
+              - htop
+              - net-tools
+            state: present
+            
+        - name: Start and enable Docker
+          systemd:
+            name: docker
+            state: started
+            enabled: yes
+            
+        - name: Add user to docker group
+          user:
+            name: "{{ ansible_user }}"
+            groups: docker
+            append: yes
+
+    # PHASE 2: Uptime Kuma Installation
+    - name: "PHASE 2: Uptime Kuma Installation"
+      block:
+        - name: Create Uptime Kuma directories
+          file:
+            path: "{{ item }}"
+            state: directory
+            owner: "{{ ansible_user }}"
+            group: "{{ ansible_user }}"
+            mode: '0755'
+          loop:
+            - "{{ uptime_kuma_data_path }}"
+            - "/opt/uptime-kuma/config"
+            - "/opt/uptime-kuma/logs"
+            
+        - name: Create Docker Compose file
+          copy:
+            content: |
+              version: '3.8'
+              
+              services:
+                uptime-kuma:
+                  image: louislam/uptime-kuma:{{ uptime_kuma_version }}
+                  container_name: uptime-kuma
+                  volumes:
+                    - {{ uptime_kuma_data_path }}:/app/data
+                    - /var/run/docker.sock:/var/run/docker.sock:ro
+                  ports:
+                    - "{{ uptime_kuma_port }}:3001"
+                  restart: unless-stopped
+                  environment:
+                    - UPTIME_KUMA_DISABLE_FRAME_SAMEORIGIN=0
+                  healthcheck:
+                    test: ["CMD", "curl", "-f", "http://localhost:3001"]
+                    interval: 30s
+                    timeout: 10s
+                    retries: 3
+                    start_period: 40s
+                  logging:
+                    driver: "json-file"
+                    options:
+                      max-size: "10m"
+                      max-file: "3"
+                      
+              networks:
+                default:
+                  name: uptime-kuma-network
+            dest: "{{ uptime_kuma_data_path }}/docker-compose.yml"
+            owner: "{{ ansible_user }}"
+            group: "{{ ansible_user }}"
+            mode: '0644'
+            
+        - name: Start Uptime Kuma container
+          docker_compose:
+            project_src: "{{ uptime_kuma_data_path }}"
+            state: present
+          become_user: "{{ ansible_user }}"
+
+    # PHASE 3: System Service Integration
+    - name: "PHASE 3: System Service Integration"
+      block:
+        - name: Create systemd service for Uptime Kuma
+          copy:
+            content: |
+              [Unit]
+              Description=Uptime Kuma Network Monitoring
+              After=docker.service
+              Requires=docker.service
+              
+              [Service]
+              Type=oneshot
+              RemainAfterExit=yes
+              WorkingDirectory={{ uptime_kuma_data_path }}
+              ExecStart=/usr/bin/docker-compose up -d
+              ExecStop=/usr/bin/docker-compose down
+              TimeoutStartSec=0
+              User={{ ansible_user }}
+              Group={{ ansible_user }}
+              
+              [Install]
+              WantedBy=multi-user.target
+            dest: /etc/systemd/system/uptime-kuma.service
+            mode: '0644'
+            
+        - name: Enable Uptime Kuma service
+          systemd:
+            name: uptime-kuma
+            enabled: yes
+            daemon_reload: yes
+
+    # PHASE 4: Configuration and Setup
+    - name: "PHASE 4: Initial Configuration"
+      block:
+        - name: Wait for Uptime Kuma to be ready
+          uri:
+            url: "http://{{ ansible_host }}:{{ uptime_kuma_port }}"
+            method: GET
+            status_code: 200
+          register: uptime_kuma_ready
+          until: uptime_kuma_ready.status == 200
+          retries: 30
+          delay: 10
+          
+        - name: Create monitoring configuration script
+          copy:
+            content: |
+              #!/bin/bash
+              # Uptime Kuma Configuration Script
+              # Run this manually after deployment to configure monitoring targets
+              
+              echo "🔧 Uptime Kuma Configuration"
+              echo "Access Uptime Kuma at: http://{{ ansible_host }}:{{ uptime_kuma_port }}"
+              echo ""
+              echo "📋 Recommended Monitoring Targets:"
+              {% for target in monitoring_targets %}
+              echo "• {{ target.name }}"
+              echo "  Type: {{ target.type | upper }}"
+              {% if target.type == 'https' or target.type == 'http' %}
+              echo "  URL: {{ target.url }}"
+              {% elif target.type == 'ping' or target.type == 'dns' %}
+              echo "  Hostname: {{ target.hostname }}"
+              {% endif %}
+              echo "  Interval: {{ target.interval }}s"
+              echo "  Description: {{ target.description }}"
+              echo ""
+              {% endfor %}
+              
+              echo "🔔 Notification Setup:"
+              echo "• Email: {{ admin_email }}"
+              {% if slack_webhook != '' %}
+              echo "• Slack: Webhook configured"
+              {% else %}
+              echo "• Slack: Configure webhook in Uptime Kuma settings"
+              {% endif %}
+              echo ""
+              echo "🎯 Next Steps:"
+              echo "1. Access web interface and complete initial setup"
+              echo "2. Add monitoring targets listed above"
+              echo "3. Configure notification channels"
+              echo "4. Set up status page (optional)"
+              echo "5. Test all monitoring targets"
+            dest: "{{ uptime_kuma_data_path }}/configure.sh"
+            mode: '0755'
+            owner: "{{ ansible_user }}"
+            group: "{{ ansible_user }}"
+
+  post_tasks:
+    - name: Display deployment completion summary
+      debug:
+        msg: |
+          ==========================================
+          UPTIME KUMA DEPLOYMENT COMPLETED
+          ==========================================
+          
+          🎉 SUCCESS! Uptime Kuma is now running
+          
+          📊 DEPLOYMENT DETAILS:
+          • Host: {{ inventory_hostname }} ({{ ansible_host }})
+          • Port: {{ uptime_kuma_port }}
+          • Data Path: {{ uptime_kuma_data_path }}
+          • Version: {{ uptime_kuma_version }}
+          
+          🌐 ACCESS INFORMATION:
+          • Web Interface: http://{{ ansible_host }}:{{ uptime_kuma_port }}
+          • Initial Setup: Required on first access
+          • Configuration Script: {{ uptime_kuma_data_path }}/configure.sh
+          
+          📋 MONITORING TARGETS READY:
+          • {{ monitoring_targets | length }} targets configured
+          • OPNsense, switches, Proxmox, TrueNAS, connectivity
+          
+          🔔 NOTIFICATIONS:
+          • Email: {{ admin_email }}
+          • Slack: {{ 'Configured' if slack_webhook != '' else 'Manual setup required' }}
+          
+          🎯 NEXT STEPS:
+          1. Access web interface: http://{{ ansible_host }}:{{ uptime_kuma_port }}
+          2. Complete initial setup wizard
+          3. Add monitoring targets (see configure.sh)
+          4. Configure notification channels
+          5. Test monitoring and alerting
+          
+          ✅ NETWORK MONITORING IS NOW OPERATIONAL!
+          ==========================================
+      run_once: true

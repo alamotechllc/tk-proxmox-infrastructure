@@ -1,0 +1,172 @@
+---
+# Schedule Network Switch Backups
+# Sets up automated backup scheduling for network switches
+
+- name: Configure Automated Network Switch Backups
+  hosts: localhost
+  gather_facts: false
+  
+  vars:
+    backup_schedule:
+      daily:
+        hour: 2
+        minute: 30
+        enabled: true
+        retention_days: 7
+        compress: true
+        vendor: "all"
+      weekly:
+        weekday: 0  # Sunday
+        hour: 3
+        minute: 0
+        enabled: true
+        retention_days: 30
+        compress: true
+        vendor: "all"
+      monthly:
+        day: 1
+        hour: 4
+        minute: 0
+        enabled: true
+        retention_days: 365
+        compress: true
+        vendor: "all"
+    
+    backup_script: "/Users/mike.turner/APP_Projects/tk-proxmox/infra/scripts/backup_network_switches.sh"
+    backup_location: "/opt/network_backups"
+    
+  tasks:
+    - name: Create backup directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - "{{ backup_location }}"
+        - "{{ backup_location }}/daily"
+        - "{{ backup_location }}/weekly"
+        - "{{ backup_location }}/monthly"
+        - "{{ backup_location }}/logs"
+      become: true
+      
+    - name: Install daily backup cron job
+      cron:
+        name: "Network Switch Daily Backup"
+        minute: "{{ backup_schedule.daily.minute }}"
+        hour: "{{ backup_schedule.daily.hour }}"
+        job: "{{ backup_script }} -v {{ backup_schedule.daily.vendor }} -l {{ backup_location }}/daily -r {{ backup_schedule.daily.retention_days }} {{ '-c' if backup_schedule.daily.compress else '' }} >> {{ backup_location }}/logs/daily_backup.log 2>&1"
+        state: "{{ 'present' if backup_schedule.daily.enabled else 'absent' }}"
+        user: root
+      become: true
+      
+    - name: Install weekly backup cron job
+      cron:
+        name: "Network Switch Weekly Backup"
+        minute: "{{ backup_schedule.weekly.minute }}"
+        hour: "{{ backup_schedule.weekly.hour }}"
+        weekday: "{{ backup_schedule.weekly.weekday }}"
+        job: "{{ backup_script }} -v {{ backup_schedule.weekly.vendor }} -l {{ backup_location }}/weekly -r {{ backup_schedule.weekly.retention_days }} {{ '-c' if backup_schedule.weekly.compress else '' }} >> {{ backup_location }}/logs/weekly_backup.log 2>&1"
+        state: "{{ 'present' if backup_schedule.weekly.enabled else 'absent' }}"
+        user: root
+      become: true
+      
+    - name: Install monthly backup cron job
+      cron:
+        name: "Network Switch Monthly Backup"
+        minute: "{{ backup_schedule.monthly.minute }}"
+        hour: "{{ backup_schedule.monthly.hour }}"
+        day: "{{ backup_schedule.monthly.day }}"
+        job: "{{ backup_script }} -v {{ backup_schedule.monthly.vendor }} -l {{ backup_location }}/monthly -r {{ backup_schedule.monthly.retention_days }} {{ '-c' if backup_schedule.monthly.compress else '' }} >> {{ backup_location }}/logs/monthly_backup.log 2>&1"
+        state: "{{ 'present' if backup_schedule.monthly.enabled else 'absent' }}"
+        user: root
+      become: true
+      
+    - name: Create backup monitoring script
+      copy:
+        content: |
+          #!/bin/bash
+          # Network Backup Monitoring Script
+          
+          BACKUP_BASE="{{ backup_location }}"
+          TODAY=$(date +%Y-%m-%d)
+          YESTERDAY=$(date -d "yesterday" +%Y-%m-%d)
+          
+          echo "=== Network Backup Status Check ==="
+          echo "Date: $(date)"
+          echo ""
+          
+          # Check if today's backup exists
+          if [[ -d "$BACKUP_BASE/daily/$TODAY" ]]; then
+              echo "✅ Today's backup: EXISTS"
+              echo "   Location: $BACKUP_BASE/daily/$TODAY"
+              echo "   Files: $(find "$BACKUP_BASE/daily/$TODAY" -name "*.cfg" | wc -l) configurations"
+              echo "   Size: $(du -sh "$BACKUP_BASE/daily/$TODAY" | cut -f1)"
+          else
+              echo "❌ Today's backup: MISSING"
+          fi
+          
+          # Check backup logs
+          echo ""
+          echo "📋 Recent Backup Logs:"
+          if [[ -f "$BACKUP_BASE/logs/daily_backup.log" ]]; then
+              echo "   Daily: $(tail -1 "$BACKUP_BASE/logs/daily_backup.log")"
+          fi
+          
+          # Check disk usage
+          echo ""
+          echo "💾 Backup Storage Usage:"
+          df -h "$BACKUP_BASE" | tail -1
+          
+          # List recent backups
+          echo ""
+          echo "📁 Recent Backups:"
+          find "$BACKUP_BASE" -maxdepth 3 -name "*.cfg" -mtime -7 | head -10
+          
+          echo ""
+          echo "=== End Status Check ==="
+        dest: "{{ backup_location }}/check_backup_status.sh"
+        mode: '0755'
+      become: true
+      
+    - name: Display backup schedule summary
+      debug:
+        msg: |
+          ==========================================
+          NETWORK BACKUP SCHEDULING CONFIGURED
+          ==========================================
+          
+          📅 BACKUP SCHEDULES:
+          
+          Daily Backup:
+            Time: {{ backup_schedule.daily.hour }}:{{ '%02d' | format(backup_schedule.daily.minute) }}
+            Status: {{ 'Enabled' if backup_schedule.daily.enabled else 'Disabled' }}
+            Retention: {{ backup_schedule.daily.retention_days }} days
+            Location: {{ backup_location }}/daily/
+          
+          Weekly Backup:
+            Time: Sunday {{ backup_schedule.weekly.hour }}:{{ '%02d' | format(backup_schedule.weekly.minute) }}
+            Status: {{ 'Enabled' if backup_schedule.weekly.enabled else 'Disabled' }}
+            Retention: {{ backup_schedule.weekly.retention_days }} days
+            Location: {{ backup_location }}/weekly/
+          
+          Monthly Backup:
+            Time: 1st {{ backup_schedule.monthly.hour }}:{{ '%02d' | format(backup_schedule.monthly.minute) }}
+            Status: {{ 'Enabled' if backup_schedule.monthly.enabled else 'Disabled' }}
+            Retention: {{ backup_schedule.monthly.retention_days }} days
+            Location: {{ backup_location }}/monthly/
+          
+          🔧 MANAGEMENT COMMANDS:
+          
+          Manual Backup:
+            {{ backup_script }} [options]
+          
+          Check Status:
+            {{ backup_location }}/check_backup_status.sh
+          
+          View Logs:
+            tail -f {{ backup_location }}/logs/daily_backup.log
+          
+          List Backups:
+            find {{ backup_location }} -name "*.cfg" -mtime -7
+          
+          ==========================================

@@ -1,0 +1,424 @@
+{
+  "project_id": 4,
+  "templates": [
+    {
+      "name": "OPNsense Firewall Management",
+      "description": "Manage OPNsense firewall rules via API with safety controls",
+      "playbook": "infra/ansible/playbooks/network/opnsense_firewall_management.yml",
+      "inventory": "inventories/network_switches.yml",
+      "repository": 1,
+      "app": "ansible",
+      "survey_vars": [
+        {
+          "name": "firewall_operation",
+          "type": "select",
+          "question": "Select Firewall Operation",
+          "description": "Choose the firewall operation to perform",
+          "required": true,
+          "options": [
+            {
+              "value": "list",
+              "text": "List Current Rules"
+            },
+            {
+              "value": "add",
+              "text": "Add New Rule"
+            },
+            {
+              "value": "modify",
+              "text": "Modify Existing Rule"
+            },
+            {
+              "value": "delete",
+              "text": "Delete Rule"
+            }
+          ],
+          "default": "list"
+        },
+        {
+          "name": "rule_description_text",
+          "type": "text",
+          "question": "Rule Description",
+          "description": "Descriptive name for the firewall rule",
+          "required": false,
+          "default": "Ansible Managed Rule"
+        },
+        {
+          "name": "rule_source_network",
+          "type": "select",
+          "question": "Source Network",
+          "description": "Source network for the firewall rule",
+          "required": false,
+          "options": [
+            {
+              "value": "172.23.2.0/24",
+              "text": "VLAN 2 - SERVERS (172.23.2.0/24)"
+            },
+            {
+              "value": "172.23.3.0/24",
+              "text": "VLAN 3 - WORKSTATIONS (172.23.3.0/24)"
+            },
+            {
+              "value": "172.23.4.0/24",
+              "text": "VLAN 4 - GUEST (172.23.4.0/24)"
+            },
+            {
+              "value": "172.23.5.0/24",
+              "text": "VLAN 5 - IOT (172.23.5.0/24)"
+            },
+            {
+              "value": "172.23.6.0/24",
+              "text": "VLAN 6 - GAMING (172.23.6.0/24)"
+            },
+            {
+              "value": "172.23.7.0/24",
+              "text": "VLAN 7 - MANAGEMENT (172.23.7.0/24)"
+            }
+          ],
+          "default": ""
+        },
+        {
+          "name": "rule_destination_network",
+          "type": "select",
+          "question": "Destination Network",
+          "description": "Destination network for the firewall rule",
+          "required": false,
+          "options": [
+            {
+              "value": "172.23.2.0/24",
+              "text": "VLAN 2 - SERVERS (172.23.2.0/24)"
+            },
+            {
+              "value": "172.23.3.0/24",
+              "text": "VLAN 3 - WORKSTATIONS (172.23.3.0/24)"
+            },
+            {
+              "value": "172.23.4.0/24",
+              "text": "VLAN 4 - GUEST (172.23.4.0/24)"
+            },
+            {
+              "value": "172.23.5.0/24",
+              "text": "VLAN 5 - IOT (172.23.5.0/24)"
+            },
+            {
+              "value": "172.23.6.0/24",
+              "text": "VLAN 6 - GAMING (172.23.6.0/24)"
+            },
+            {
+              "value": "172.23.7.0/24",
+              "text": "VLAN 7 - MANAGEMENT (172.23.7.0/24)"
+            }
+          ],
+          "default": ""
+        },
+        {
+          "name": "rule_port_number",
+          "type": "select",
+          "question": "Destination Port",
+          "description": "Destination port for the firewall rule",
+          "required": false,
+          "options": [
+            {
+              "value": "22",
+              "text": "SSH (22)"
+            },
+            {
+              "value": "80",
+              "text": "HTTP (80)"
+            },
+            {
+              "value": "443",
+              "text": "HTTPS (443)"
+            },
+            {
+              "value": "53",
+              "text": "DNS (53)"
+            },
+            {
+              "value": "67",
+              "text": "DHCP (67)"
+            },
+            {
+              "value": "123",
+              "text": "NTP (123)"
+            },
+            {
+              "value": "161",
+              "text": "SNMP (161)"
+            },
+            {
+              "value": "3389",
+              "text": "RDP (3389)"
+            },
+            {
+              "value": "5900",
+              "text": "VNC (5900)"
+            }
+          ],
+          "default": ""
+        },
+        {
+          "name": "rule_protocol_type",
+          "type": "select",
+          "question": "Protocol",
+          "description": "Protocol for the firewall rule",
+          "required": false,
+          "options": [
+            {
+              "value": "tcp",
+              "text": "TCP"
+            },
+            {
+              "value": "udp",
+              "text": "UDP"
+            },
+            {
+              "value": "icmp",
+              "text": "ICMP"
+            },
+            {
+              "value": "any",
+              "text": "Any"
+            }
+          ],
+          "default": "tcp"
+        },
+        {
+          "name": "rule_action_type",
+          "type": "select",
+          "question": "Action",
+          "description": "Action for the firewall rule",
+          "required": false,
+          "options": [
+            {
+              "value": "pass",
+              "text": "Allow (Pass)"
+            },
+            {
+              "value": "block",
+              "text": "Block"
+            },
+            {
+              "value": "reject",
+              "text": "Reject"
+            }
+          ],
+          "default": "pass"
+        },
+        {
+          "name": "rule_enabled_status",
+          "type": "select",
+          "question": "Rule Status",
+          "description": "Enable or disable the firewall rule",
+          "required": false,
+          "options": [
+            {
+              "value": "true",
+              "text": "Enabled"
+            },
+            {
+              "value": "false",
+              "text": "Disabled"
+            }
+          ],
+          "default": "true"
+        }
+      ],
+      "extra_vars": {
+        "firewall_operation": "{{ firewall_operation }}",
+        "rule_description_text": "{{ rule_description_text }}",
+        "rule_source_network": "{{ rule_source_network }}",
+        "rule_destination_network": "{{ rule_destination_network }}",
+        "rule_port_number": "{{ rule_port_number }}",
+        "rule_protocol_type": "{{ rule_protocol_type }}",
+        "rule_action_type": "{{ rule_action_type }}",
+        "rule_enabled_status": "{{ rule_enabled_status }}"
+      }
+    },
+    {
+      "name": "OPNsense DHCP Management",
+      "description": "Manage OPNsense DHCP pools and reservations via API",
+      "playbook": "infra/ansible/playbooks/network/opnsense_dhcp_management.yml",
+      "inventory": "inventories/network_switches.yml",
+      "repository": 1,
+      "app": "ansible",
+      "survey_vars": [
+        {
+          "name": "dhcp_operation",
+          "type": "select",
+          "question": "Select DHCP Operation",
+          "description": "Choose the DHCP operation to perform",
+          "required": true,
+          "options": [
+            {
+              "value": "list",
+              "text": "List DHCP Pools"
+            },
+            {
+              "value": "add_pool",
+              "text": "Add DHCP Pool"
+            },
+            {
+              "value": "add_reservation",
+              "text": "Add DHCP Reservation"
+            },
+            {
+              "value": "list_leases",
+              "text": "List Active Leases"
+            }
+          ],
+          "default": "list"
+        },
+        {
+          "name": "dhcp_vlan",
+          "type": "select",
+          "question": "VLAN for DHCP Pool",
+          "description": "Select the VLAN for DHCP configuration",
+          "required": false,
+          "options": [
+            {
+              "value": "2",
+              "text": "VLAN 2 - SERVERS"
+            },
+            {
+              "value": "3",
+              "text": "VLAN 3 - WORKSTATIONS"
+            },
+            {
+              "value": "4",
+              "text": "VLAN 4 - GUEST"
+            },
+            {
+              "value": "5",
+              "text": "VLAN 5 - IOT"
+            },
+            {
+              "value": "6",
+              "text": "VLAN 6 - GAMING"
+            },
+            {
+              "value": "7",
+              "text": "VLAN 7 - MANAGEMENT"
+            }
+          ],
+          "default": ""
+        },
+        {
+          "name": "dhcp_range_start",
+          "type": "text",
+          "question": "DHCP Range Start IP",
+          "description": "Starting IP address for DHCP pool (e.g., 172.23.3.100)",
+          "required": false,
+          "default": ""
+        },
+        {
+          "name": "dhcp_range_end",
+          "type": "text",
+          "question": "DHCP Range End IP",
+          "description": "Ending IP address for DHCP pool (e.g., 172.23.3.200)",
+          "required": false,
+          "default": ""
+        },
+        {
+          "name": "dhcp_lease_time",
+          "type": "select",
+          "question": "DHCP Lease Time",
+          "description": "DHCP lease duration",
+          "required": false,
+          "options": [
+            {
+              "value": "3600",
+              "text": "1 Hour"
+            },
+            {
+              "value": "7200",
+              "text": "2 Hours"
+            },
+            {
+              "value": "86400",
+              "text": "24 Hours"
+            },
+            {
+              "value": "604800",
+              "text": "7 Days"
+            }
+          ],
+          "default": "86400"
+        }
+      ],
+      "extra_vars": {
+        "dhcp_operation": "{{ dhcp_operation }}",
+        "dhcp_vlan": "{{ dhcp_vlan }}",
+        "dhcp_range_start": "{{ dhcp_range_start }}",
+        "dhcp_range_end": "{{ dhcp_range_end }}",
+        "dhcp_lease_time": "{{ dhcp_lease_time }}"
+      }
+    },
+    {
+      "name": "OPNsense Health Monitoring",
+      "description": "Monitor OPNsense system health and interface status",
+      "playbook": "infra/ansible/playbooks/network/opnsense_health_monitoring.yml",
+      "inventory": "inventories/network_switches.yml",
+      "repository": 1,
+      "app": "ansible",
+      "survey_vars": [
+        {
+          "name": "monitoring_operation",
+          "type": "select",
+          "question": "Select Monitoring Operation",
+          "description": "Choose the monitoring operation to perform",
+          "required": true,
+          "options": [
+            {
+              "value": "system_status",
+              "text": "System Status"
+            },
+            {
+              "value": "interface_status",
+              "text": "Interface Status"
+            },
+            {
+              "value": "firewall_stats",
+              "text": "Firewall Statistics"
+            },
+            {
+              "value": "dhcp_stats",
+              "text": "DHCP Statistics"
+            },
+            {
+              "value": "comprehensive",
+              "text": "Comprehensive Health Check"
+            }
+          ],
+          "default": "comprehensive"
+        }
+      ],
+      "extra_vars": {
+        "monitoring_operation": "{{ monitoring_operation }}"
+      }
+    }
+  ],
+  "secrets": [
+    {
+      "name": "OPNsense API Key",
+      "description": "API key for OPNsense authentication",
+      "required": true,
+      "type": "text",
+      "value": "opnsense_api_key"
+    },
+    {
+      "name": "OPNsense API Secret",
+      "description": "API secret for OPNsense authentication",
+      "required": true,
+      "type": "password",
+      "value": "opnsense_api_secret"
+    },
+    {
+      "name": "OPNsense SSH Key",
+      "description": "SSH private key for OPNsense emergency access",
+      "required": false,
+      "type": "ssh_key",
+      "value": "opnsense_ssh_key"
+    }
+  ]
+}

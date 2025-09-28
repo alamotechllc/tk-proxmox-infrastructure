@@ -1,0 +1,332 @@
+---
+# Network Switch Configuration Backup Runbook
+# Backs up configurations from Arista EOS, Cisco Nexus NX-OS, and Cisco Catalyst IOS-XE switches
+# Supports multiple backup formats and retention policies
+
+- name: Network Switch Configuration Backup
+  hosts: "{{ target_hosts | default('all') }}"
+  gather_facts: false
+  serial: "{{ backup_concurrency | default(3) }}"
+  
+  vars:
+    # Backup configuration
+    backup_base_dir: "{{ backup_location | default('/opt/network_backups') }}"
+    backup_date: "{{ ansible_date_time.date }}"
+    backup_time: "{{ ansible_date_time.time }}"
+    backup_timestamp: "{{ ansible_date_time.epoch }}"
+    retention_days: "{{ backup_retention_days | default(30) }}"
+    compress_files: "{{ compress_backups | default(true) }}"
+    
+    # Vendor-specific settings
+    backup_formats:
+      arista: "{{ backup_format | default('text') }}"
+      cisco_nxos: "{{ backup_format | default('text') }}"
+      cisco_ios: "{{ backup_format | default('text') }}"
+  
+  pre_tasks:
+    - name: Display backup operation details
+      debug:
+        msg: |
+          ==========================================
+          NETWORK SWITCH BACKUP OPERATION
+          ==========================================
+          Target Hosts: {{ ansible_play_hosts | length }} switches
+          Backup Location: {{ backup_base_dir }}
+          Backup Date: {{ backup_date }} {{ backup_time }}
+          Retention: {{ retention_days }} days
+          Compression: {{ 'Enabled' if compress_files else 'Disabled' }}
+          ==========================================
+      run_once: true
+      delegate_to: localhost
+
+    - name: Create backup directory structure
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - "{{ backup_base_dir }}"
+        - "{{ backup_base_dir }}/{{ backup_date }}"
+        - "{{ backup_base_dir }}/{{ backup_date }}/arista"
+        - "{{ backup_base_dir }}/{{ backup_date }}/nexus"
+        - "{{ backup_base_dir }}/{{ backup_date }}/catalyst"
+        - "{{ backup_base_dir }}/{{ backup_date }}/logs"
+      run_once: true
+      delegate_to: localhost
+
+  tasks:
+    # Arista EOS Switch Backups
+    - name: Backup Arista EOS Switch Configuration
+      block:
+        - name: Get Arista running configuration
+          eos_config:
+            backup: yes
+            backup_options:
+              filename: "{{ backup_base_dir }}/{{ backup_date }}/arista/{{ inventory_hostname }}_{{ backup_timestamp }}.cfg"
+              dir_path: "{{ backup_base_dir }}/{{ backup_date }}/arista/"
+          register: arista_backup_result
+          
+        - name: Get Arista startup configuration
+          eos_command:
+            commands:
+              - show startup-config
+          register: arista_startup_config
+          
+        - name: Save Arista startup configuration
+          copy:
+            content: "{{ arista_startup_config.stdout[0] }}"
+            dest: "{{ backup_base_dir }}/{{ backup_date }}/arista/{{ inventory_hostname }}_startup_{{ backup_timestamp }}.cfg"
+          delegate_to: localhost
+          
+        - name: Get Arista system information
+          eos_facts:
+            gather_subset: all
+          register: arista_facts
+          
+        - name: Save Arista system information
+          copy:
+            content: |
+              # Arista Switch System Information
+              # Backup Date: {{ backup_date }} {{ backup_time }}
+              # Device: {{ inventory_hostname }}
+              
+              Hostname: {{ arista_facts.ansible_facts.ansible_net_hostname }}
+              Model: {{ arista_facts.ansible_facts.ansible_net_model }}
+              Serial: {{ arista_facts.ansible_facts.ansible_net_serialnum }}
+              Software Version: {{ arista_facts.ansible_facts.ansible_net_version }}
+              Uptime: {{ arista_facts.ansible_facts.ansible_net_uptime }}
+              
+              Interfaces:
+              {% for interface, details in arista_facts.ansible_facts.ansible_net_interfaces.items() %}
+              - {{ interface }}: {{ details.description | default('No description') }}
+                Status: {{ details.operstatus }}
+                Speed: {{ details.bandwidth }}
+                MAC: {{ details.macaddress }}
+              {% endfor %}
+            dest: "{{ backup_base_dir }}/{{ backup_date }}/arista/{{ inventory_hostname }}_info_{{ backup_timestamp }}.txt"
+          delegate_to: localhost
+          
+      when: ansible_network_os == "eos"
+      rescue:
+        - name: Log Arista backup failure
+          copy:
+            content: |
+              BACKUP FAILED: {{ inventory_hostname }}
+              Error: {{ ansible_failed_result.msg }}
+              Time: {{ backup_date }} {{ backup_time }}
+            dest: "{{ backup_base_dir }}/{{ backup_date }}/logs/{{ inventory_hostname }}_FAILED.log"
+          delegate_to: localhost
+
+    # Cisco Nexus NX-OS Switch Backups
+    - name: Backup Cisco Nexus Switch Configuration
+      block:
+        - name: Get Nexus running configuration
+          nxos_config:
+            backup: yes
+            backup_options:
+              filename: "{{ backup_base_dir }}/{{ backup_date }}/nexus/{{ inventory_hostname }}_{{ backup_timestamp }}.cfg"
+              dir_path: "{{ backup_base_dir }}/{{ backup_date }}/nexus/"
+          register: nexus_backup_result
+          
+        - name: Get Nexus startup configuration
+          nxos_command:
+            commands:
+              - show startup-config
+          register: nexus_startup_config
+          
+        - name: Save Nexus startup configuration
+          copy:
+            content: "{{ nexus_startup_config.stdout[0] }}"
+            dest: "{{ backup_base_dir }}/{{ backup_date }}/nexus/{{ inventory_hostname }}_startup_{{ backup_timestamp }}.cfg"
+          delegate_to: localhost
+          
+        - name: Get Nexus system information
+          nxos_facts:
+            gather_subset: all
+          register: nexus_facts
+          
+        - name: Save Nexus system information
+          copy:
+            content: |
+              # Cisco Nexus Switch System Information
+              # Backup Date: {{ backup_date }} {{ backup_time }}
+              # Device: {{ inventory_hostname }}
+              
+              Hostname: {{ nexus_facts.ansible_facts.ansible_net_hostname }}
+              Model: {{ nexus_facts.ansible_facts.ansible_net_model }}
+              Serial: {{ nexus_facts.ansible_facts.ansible_net_serialnum }}
+              Software Version: {{ nexus_facts.ansible_facts.ansible_net_version }}
+              Uptime: {{ nexus_facts.ansible_facts.ansible_net_uptime }}
+              
+              VPC Information:
+              {% if nexus_facts.ansible_facts.ansible_net_vpc is defined %}
+              VPC Domain: {{ vpc_domain | default('Not configured') }}
+              VPC Peer: {{ vpc_peer | default('Not configured') }}
+              {% endif %}
+              
+              Interfaces:
+              {% for interface, details in nexus_facts.ansible_facts.ansible_net_interfaces.items() %}
+              - {{ interface }}: {{ details.description | default('No description') }}
+                Status: {{ details.operstatus }}
+                Speed: {{ details.bandwidth }}
+                MAC: {{ details.macaddress }}
+              {% endfor %}
+            dest: "{{ backup_base_dir }}/{{ backup_date }}/nexus/{{ inventory_hostname }}_info_{{ backup_timestamp }}.txt"
+          delegate_to: localhost
+          
+      when: ansible_network_os == "nxos"
+      rescue:
+        - name: Log Nexus backup failure
+          copy:
+            content: |
+              BACKUP FAILED: {{ inventory_hostname }}
+              Error: {{ ansible_failed_result.msg }}
+              Time: {{ backup_date }} {{ backup_time }}
+            dest: "{{ backup_base_dir }}/{{ backup_date }}/logs/{{ inventory_hostname }}_FAILED.log"
+          delegate_to: localhost
+
+    # Cisco Catalyst IOS-XE Switch Backups
+    - name: Backup Cisco Catalyst Switch Configuration
+      block:
+        - name: Get Catalyst running configuration
+          ios_config:
+            backup: yes
+            backup_options:
+              filename: "{{ backup_base_dir }}/{{ backup_date }}/catalyst/{{ inventory_hostname }}_{{ backup_timestamp }}.cfg"
+              dir_path: "{{ backup_base_dir }}/{{ backup_date }}/catalyst/"
+          register: catalyst_backup_result
+          
+        - name: Get Catalyst startup configuration
+          ios_command:
+            commands:
+              - show startup-config
+          register: catalyst_startup_config
+          
+        - name: Save Catalyst startup configuration
+          copy:
+            content: "{{ catalyst_startup_config.stdout[0] }}"
+            dest: "{{ backup_base_dir }}/{{ backup_date }}/catalyst/{{ inventory_hostname }}_startup_{{ backup_timestamp }}.cfg"
+          delegate_to: localhost
+          
+        - name: Get Catalyst system information
+          ios_facts:
+            gather_subset: all
+          register: catalyst_facts
+          
+        - name: Save Catalyst system information
+          copy:
+            content: |
+              # Cisco Catalyst Switch System Information
+              # Backup Date: {{ backup_date }} {{ backup_time }}
+              # Device: {{ inventory_hostname }}
+              
+              Hostname: {{ catalyst_facts.ansible_facts.ansible_net_hostname }}
+              Model: {{ catalyst_facts.ansible_facts.ansible_net_model }}
+              Serial: {{ catalyst_facts.ansible_facts.ansible_net_serialnum }}
+              Software Version: {{ catalyst_facts.ansible_facts.ansible_net_version }}
+              Uptime: {{ catalyst_facts.ansible_facts.ansible_net_uptime }}
+              
+              Stack Information:
+              {% if stack_member is defined %}
+              Stack Member: {{ stack_member }}
+              Stack Priority: {{ stack_priority }}
+              {% endif %}
+              
+              Interfaces:
+              {% for interface, details in catalyst_facts.ansible_facts.ansible_net_interfaces.items() %}
+              - {{ interface }}: {{ details.description | default('No description') }}
+                Status: {{ details.operstatus }}
+                Speed: {{ details.bandwidth }}
+                MAC: {{ details.macaddress }}
+                VLAN: {{ details.vlan | default('N/A') }}
+              {% endfor %}
+            dest: "{{ backup_base_dir }}/{{ backup_date }}/catalyst/{{ inventory_hostname }}_info_{{ backup_timestamp }}.txt"
+          delegate_to: localhost
+          
+      when: ansible_network_os == "ios"
+      rescue:
+        - name: Log Catalyst backup failure
+          copy:
+            content: |
+              BACKUP FAILED: {{ inventory_hostname }}
+              Error: {{ ansible_failed_result.msg }}
+              Time: {{ backup_date }} {{ backup_time }}
+            dest: "{{ backup_base_dir }}/{{ backup_date }}/logs/{{ inventory_hostname }}_FAILED.log"
+          delegate_to: localhost
+
+  post_tasks:
+    - name: Compress backup files (if enabled)
+      archive:
+        path: "{{ backup_base_dir }}/{{ backup_date }}"
+        dest: "{{ backup_base_dir }}/network_backup_{{ backup_date }}_{{ backup_timestamp }}.tar.gz"
+        format: gz
+        remove: false
+      when: compress_files | bool
+      delegate_to: localhost
+      run_once: true
+      
+    - name: Generate backup summary report
+      template:
+        src: backup_report.j2
+        dest: "{{ backup_base_dir }}/{{ backup_date }}/backup_summary_{{ backup_timestamp }}.txt"
+      vars:
+        backup_summary:
+          date: "{{ backup_date }}"
+          time: "{{ backup_time }}"
+          total_devices: "{{ ansible_play_hosts | length }}"
+          successful_backups: "{{ ansible_play_hosts | length - (ansible_failed_hosts | default([]) | length) }}"
+          failed_backups: "{{ ansible_failed_hosts | default([]) | length }}"
+          backup_location: "{{ backup_base_dir }}/{{ backup_date }}"
+          retention_policy: "{{ retention_days }} days"
+      delegate_to: localhost
+      run_once: true
+      
+    - name: Clean up old backups
+      find:
+        paths: "{{ backup_base_dir }}"
+        age: "{{ retention_days }}d"
+        file_type: directory
+      register: old_backups
+      delegate_to: localhost
+      run_once: true
+      
+    - name: Remove old backup directories
+      file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ old_backups.files }}"
+      when: old_backups.files | length > 0
+      delegate_to: localhost
+      run_once: true
+      
+    - name: Display backup completion summary
+      debug:
+        msg: |
+          ==========================================
+          NETWORK BACKUP COMPLETED
+          ==========================================
+          Date: {{ backup_date }} {{ backup_time }}
+          Total Devices: {{ ansible_play_hosts | length }}
+          Successful: {{ ansible_play_hosts | length - (ansible_failed_hosts | default([]) | length) }}
+          Failed: {{ ansible_failed_hosts | default([]) | length }}
+          
+          Backup Location: {{ backup_base_dir }}/{{ backup_date }}
+          {% if compress_files | bool %}
+          Compressed Archive: network_backup_{{ backup_date }}_{{ backup_timestamp }}.tar.gz
+          {% endif %}
+          
+          Vendor Breakdown:
+          - Arista EOS: {{ groups['arista_devices'] | default([]) | length }} devices
+          - Cisco Nexus: {{ groups['cisco_nxos_devices'] | default([]) | length }} devices  
+          - Cisco Catalyst: {{ groups['cisco_ios_devices'] | default([]) | length }} devices
+          
+          {% if ansible_failed_hosts | default([]) | length > 0 %}
+          FAILED DEVICES:
+          {% for host in ansible_failed_hosts | default([]) %}
+          - {{ host }}
+          {% endfor %}
+          Check logs in: {{ backup_base_dir }}/{{ backup_date }}/logs/
+          {% endif %}
+          ==========================================
+      run_once: true
+      delegate_to: localhost

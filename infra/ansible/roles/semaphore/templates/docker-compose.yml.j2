@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:{{ postgres_version }}
+    container_name: semaphore_postgres
+    environment:
+      POSTGRES_DB: {{ postgres_db }}
+      POSTGRES_USER: {{ postgres_user }}
+      POSTGRES_PASSWORD: {{ postgres_password }}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - /opt/semaphore/db:/var/lib/postgresql/data
+    networks:
+      - semaphore
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U {{ postgres_user }} -d {{ postgres_db }}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  semaphore:
+    image: semaphoreui/semaphore:{{ semaphore_version }}
+    container_name: semaphore_app
+    user: "0:0"  # Run as root to avoid permission issues
+    environment:
+      SEMAPHORE_DB_DIALECT: postgres
+      SEMAPHORE_DB_HOST: postgres
+      SEMAPHORE_DB_PORT: 5432
+      SEMAPHORE_DB_USER: {{ postgres_user }}
+      SEMAPHORE_DB_PASS: {{ postgres_password }}
+      SEMAPHORE_DB: {{ postgres_db }}
+      SEMAPHORE_PLAYBOOK_PATH: /tmp/semaphore/
+      SEMAPHORE_ADMIN_NAME: Admin
+      SEMAPHORE_ADMIN_EMAIL: {{ semaphore_admin_email }}
+      SEMAPHORE_ADMIN: {{ semaphore_admin_user }}
+      SEMAPHORE_ADMIN_PASSWORD: {{ semaphore_admin_password }}
+      SEMAPHORE_ACCESS_KEY_ENCRYPTION: {{ ansible_machine_id | default('changeme32characterstring!!!!!!') }}
+      SEMAPHORE_LDAP_ACTIVATED: 'no'
+      SEMAPHORE_CONFIG_PATH: /etc/semaphore
+      TZ: UTC
+    ports:
+      - "3000:3000"
+    volumes:
+      - /opt/semaphore/config:/etc/semaphore
+      - /tmp/semaphore:/tmp/semaphore
+    networks:
+      - semaphore
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  semaphore:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local

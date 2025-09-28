@@ -1,0 +1,24 @@
+{
+  "name": "OPNsense System Information",
+  "description": "Gather OPNsense system information and status",
+  "playbook": "playbooks/network/opnsense_system_info.yml",
+  "inventory": "inventories/opnsense.yml",
+  "survey_vars": [
+    {
+      "name": "info_type",
+      "description": "Type of information to gather",
+      "type": "enum",
+      "choices": [
+        "firmware",
+        "status",
+        "services",
+        "all"
+      ],
+      "default": "all"
+    }
+  ],
+  "extra_vars": {
+    "opnsense_host": "172.23.5.1",
+    "opnsense_verify_ssl": "false"
+  }
+}
