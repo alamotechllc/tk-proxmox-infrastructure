@@ -1,0 +1,54 @@
+---
+- name: "Sample Infrastructure Playbook"
+  hosts: localhost
+  gather_facts: true
+  serial: 1
+  
+  vars:
+    environment: "{{ environment | default('development') }}"
+    debug_mode: "{{ debug_mode | default(true) }}"
+  
+  tasks:
+    - name: Display sample playbook information
+      debug:
+        msg: |
+          🚀 Sample Infrastructure Playbook
+          ================================
+          Environment: {{ environment }}
+          Debug Mode: {{ debug_mode }}
+          Hostname: {{ ansible_hostname }}
+          OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          Architecture: {{ ansible_architecture }}
+          Timestamp: {{ ansible_date_time.iso8601 }}
+    
+    - name: System information
+      debug:
+        msg: |
+          💻 System Information
+          ====================
+          Total Memory: {{ ansible_memtotal_mb }} MB
+          Available Memory: {{ ansible_memavailable_mb }} MB
+          CPU Count: {{ ansible_processor_vcpus }}
+          Load Average: {{ ansible_loadavg }}
+          Uptime: {{ ansible_uptime_seconds | int // 3600 }} hours
+    
+    - name: Network configuration
+      debug:
+        msg: |
+          🌐 Network Configuration
+          =======================
+          Primary IP: {{ ansible_default_ipv4.address | default('Not configured') }}
+          Network: {{ ansible_default_ipv4.network | default('Not configured') }}
+          Gateway: {{ ansible_default_ipv4.gateway | default('Not configured') }}
+          Interface: {{ ansible_default_ipv4.interface | default('Not configured') }}
+
+  post_tasks:
+    - name: Playbook completion summary
+      debug:
+        msg: |
+          ✅ Sample Playbook Complete
+          ==========================
+          Environment: {{ environment }}
+          Debug Mode: {{ debug_mode }}
+          Status: Success
+          Timestamp: {{ ansible_date_time.iso8601 }}

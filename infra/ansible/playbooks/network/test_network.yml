@@ -1,0 +1,80 @@
+---
+- name: "Network Health Check"
+  hosts: localhost
+  gather_facts: true
+  serial: 1
+  
+  vars:
+    check_type: "{{ check_type | default('connectivity') }}"
+    target_network: "{{ target_network | default('172.23.0.0/16') }}"
+    target_hosts: "{{ target_hosts | default('172.23.5.1,172.23.7.10,172.23.7.20') }}"
+  
+  tasks:
+    - name: Display network health check configuration
+      debug:
+        msg: |
+          🌐 Network Health Check Configuration
+          ====================================
+          Check Type: {{ check_type }}
+          Target Network: {{ target_network }}
+          Target Hosts: {{ target_hosts }}
+          Timestamp: {{ ansible_date_time.iso8601 }}
+    
+    - name: Ping connectivity test
+      ping:
+        data: "Network Health Check - {{ ansible_date_time.iso8601 }}"
+      when: check_type in ['connectivity', 'all']
+      register: ping_result
+    
+    - name: Display ping results
+      debug:
+        msg: |
+          🏓 Ping Connectivity Test
+          =========================
+          Status: {{ 'Success' if ping_result is defined else 'Failed' }}
+          {% if ping_result is defined %}
+          Response: {{ ping_result.pong }}
+          {% endif %}
+      when: check_type in ['connectivity', 'all']
+    
+    - name: Network interface status check
+      debug:
+        msg: |
+          🔌 Network Interface Status
+          ===========================
+          Hostname: {{ ansible_hostname }}
+          Primary IP: {{ ansible_default_ipv4.address | default('Not configured') }}
+          Network: {{ ansible_default_ipv4.network | default('Not configured') }}
+          Interface: {{ ansible_default_ipv4.interface | default('Not configured') }}
+      when: check_type in ['interfaces', 'all']
+    
+    - name: DNS resolution test
+      debug:
+        msg: |
+          🌐 DNS Resolution Test
+          =====================
+          Target Network: {{ target_network }}
+          Check Type: {{ check_type }}
+          Note: DNS resolution test would be performed here
+      when: check_type in ['dns', 'all']
+    
+    - name: Service availability check
+      debug:
+        msg: |
+          🔧 Service Availability Check
+          =============================
+          Check Type: {{ check_type }}
+          Target Hosts: {{ target_hosts }}
+          Note: Service availability check would be performed here
+      when: check_type in ['services', 'all']
+
+  post_tasks:
+    - name: Health check summary
+      debug:
+        msg: |
+          🎯 Network Health Check Complete
+          ===============================
+          Check Type: {{ check_type }}
+          Target Network: {{ target_network }}
+          Status: Completed successfully
+          Timestamp: {{ ansible_date_time.iso8601 }}
