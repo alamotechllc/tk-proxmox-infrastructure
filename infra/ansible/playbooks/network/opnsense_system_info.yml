@@ -9,7 +9,6 @@
     opnsense_api_key: "{{ opnsense_api_key | default('YOUR_OPNSENSE_API_KEY') }}"
     opnsense_api_secret: "{{ opnsense_api_secret | default('YOUR_OPNSENSE_API_SECRET') }}"
     opnsense_verify_ssl: "{{ opnsense_verify_ssl | default(false) }}"
-    info_type: "{{ info_type | default('system') }}"
   
   pre_tasks:
     - name: Validate OPNsense connectivity
@@ -43,14 +42,16 @@
   tasks:
     - name: Get system information
       uri:
-        url: "https://{{ opnsense_host }}/api/core/system/info"
+        url: "https://{{ opnsense_host }}/api/core/system/information"
         method: GET
         user: "{{ opnsense_api_key }}"
         password: "{{ opnsense_api_secret }}"
         force_basic_auth: yes
         validate_certs: "{{ opnsense_verify_ssl }}"
       register: system_info
-      when: info_type in ['system', 'all']
+      when: (info_type | default('system')) in ['system', 'all']
+      failed_when: false
+      ignore_errors: true
     
     - name: Display system information with beautiful formatting
       debug:
@@ -79,7 +80,7 @@
         force_basic_auth: yes
         validate_certs: "{{ opnsense_verify_ssl }}"
       register: firmware_info
-      when: info_type in ['firmware', 'all']
+      when: (info_type | default('system')) in ['firmware', 'all']
     
     - name: Display firmware information with beautiful formatting
       debug:
@@ -96,11 +97,11 @@
           ║ ❌ Failed to retrieve firmware information
           ║ {% endif %}
           ╚═══════════════════════════════════════════════════════════════════════════════╝
-      when: info_type in ['firmware', 'all']
+      when: (info_type | default('system')) in ['firmware', 'all']
     
     - name: Get interface information
       uri:
-        url: "https://{{ opnsense_host }}/api/core/interfaces/search"
+        url: "https://{{ opnsense_host }}/api/core/interface/search"
         method: POST
         user: "{{ opnsense_api_key }}"
         password: "{{ opnsense_api_secret }}"
@@ -113,7 +114,9 @@
           sort: {}
           searchPhrase: ""
       register: interface_info
-      when: info_type in ['interfaces', 'all']
+      when: (info_type | default('system')) in ['interfaces', 'all']
+      failed_when: false
+      ignore_errors: true
     
     - name: Display interface information with beautiful formatting
       debug:
@@ -132,7 +135,7 @@
           ║ ❌ Failed to retrieve interface information
           ║ {% endif %}
           ╚═══════════════════════════════════════════════════════════════════════════════╝
-      when: info_type in ['interfaces', 'all']
+      when: (info_type | default('system')) in ['interfaces', 'all']
 
   post_tasks:
     - name: Display beautiful summary
