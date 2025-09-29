@@ -19,8 +19,20 @@
         password: "{{ opnsense_api_secret }}"
         force_basic_auth: yes
         validate_certs: "{{ opnsense_verify_ssl }}"
+        timeout: 10
       register: opnsense_connectivity
       failed_when: false
+      ignore_errors: true
+    
+    - name: Set connectivity status
+      set_fact:
+        opnsense_connected: "{{ opnsense_connectivity.status == 200 }}"
+      when: opnsense_connectivity is defined and opnsense_connectivity.status is defined
+    
+    - name: Set connectivity status default
+      set_fact:
+        opnsense_connected: false
+      when: opnsense_connectivity is not defined or opnsense_connectivity.status is not defined
     
     - name: Display connectivity status with beautiful formatting
       debug:
@@ -29,12 +41,12 @@
           ║                       🔥 OPNsense CONNECTIVITY TEST                          ║
           ╠═══════════════════════════════════════════════════════════════════════════════╣
           ║ Host: {{ opnsense_host }}
-          ║ Status: {{ '✅ Connected' if opnsense_connectivity.status == 200 else '❌ Failed' }}
-          ║ {% if opnsense_connectivity.status == 200 %}
+          ║ Status: {{ '✅ Connected' if opnsense_connected else '❌ Failed' }}
+          ║ {% if opnsense_connected and opnsense_connectivity.json is defined %}
           ║ Product: {{ opnsense_connectivity.json.product_id }}
           ║ Version: {{ opnsense_connectivity.json.product_version }}
-          ║ {% else %}
-          ║ Error: {{ opnsense_connectivity.msg }}
+          ║ {% elif not opnsense_connected %}
+          ║ Error: {{ opnsense_connectivity.msg | default('Connection failed') }}
           ║ {% endif %}
           ║ Timestamp: {{ ansible_date_time.iso8601 }}
           ╚═══════════════════════════════════════════════════════════════════════════════╝
