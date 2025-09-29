@@ -126,86 +126,107 @@
   tasks:
     - name: Simulate VLAN assignment on Arista Core Switch
       block:
-        - name: Simulate port configuration
+        - name: Simulate port configuration with beautiful formatting
           debug:
             msg: |
-              ARISTA CORE SWITCH CONFIGURATION SIMULATION
-              ===========================================
-              Switch: {{ switch_config.name }}
-              IP: {{ switch_config.ip }}
-              Port: {{ target_port }}
-              VLAN: {{ target_vlan }} ({{ switch_config.vlan_assignments[target_vlan | int] }})
-              Description: {{ port_description }}
-              
-              Commands that would be executed:
-              - interface {{ target_port }}
-              - description {{ port_description }}
-              - switchport mode access
-              - switchport access vlan {{ target_vlan }}
-              - spanning-tree portfast
-              - no shutdown
-              
-              ✅ Configuration simulation completed successfully!
+              ╔═══════════════════════════════════════════════════════════════════════════════╗
+              ║                   🔧 ARISTA CORE SWITCH CONFIGURATION                        ║
+              ╠═══════════════════════════════════════════════════════════════════════════════╣
+              ║ Switch: {{ switch_config.name }}
+              ║ IP Address: {{ switch_config.ip }}
+              ║ Target Port: {{ target_port }}
+              ║ VLAN ID: {{ target_vlan }}
+              ║ VLAN Name: {{ switch_config.vlan_assignments[target_vlan | int] }}
+              ║ Description: {{ port_description }}
+              ║ Timestamp: {{ ansible_date_time.iso8601 }}
+              ╠═══════════════════════════════════════════════════════════════════════════════╣
+              ║                              📋 COMMANDS TO EXECUTE                          ║
+              ╠═══════════════════════════════════════════════════════════════════════════════╣
+              ║ interface {{ target_port }}
+              ║ description {{ port_description }}
+              ║ switchport mode access
+              ║ switchport access vlan {{ target_vlan }}
+              ║ spanning-tree portfast
+              ║ no shutdown
+              ╠═══════════════════════════════════════════════════════════════════════════════╣
+              ║                           ✅ CONFIGURATION SIMULATION COMPLETE               ║
+              ╚═══════════════════════════════════════════════════════════════════════════════╝
       when: switch_name == "arista_core"
 
     - name: Simulate VLAN assignment on Cisco Nexus
       block:
-        - name: Simulate port configuration
+        - name: Simulate port configuration with beautiful formatting
           debug:
             msg: |
-              CISCO NEXUS SWITCH CONFIGURATION SIMULATION
-              ===========================================
-              Switch: {{ switch_config.name }}
-              IP: {{ switch_config.ip }}
-              Port: {{ target_port }}
-              VLAN: {{ target_vlan }} ({{ switch_config.vlan_assignments[target_vlan | int] }})
-              Description: {{ port_description }}
-              
-              Commands that would be executed:
-              - interface {{ target_port }}
-              - description {{ port_description }}
-              - switchport mode access
-              - switchport access vlan {{ target_vlan }}
-              - no shutdown
-              
-              ✅ Configuration simulation completed successfully!
+              ╔═══════════════════════════════════════════════════════════════════════════════╗
+              ║                  🌐 CISCO NEXUS SWITCH CONFIGURATION                         ║
+              ╠═══════════════════════════════════════════════════════════════════════════════╣
+              ║ Switch: {{ switch_config.name }}
+              ║ IP Address: {{ switch_config.ip }}
+              ║ Target Port: {{ target_port }}
+              ║ VLAN ID: {{ target_vlan }}
+              ║ VLAN Name: {{ switch_config.vlan_assignments[target_vlan | int] }}
+              ║ Description: {{ port_description }}
+              ║ Timestamp: {{ ansible_date_time.iso8601 }}
+              ╠═══════════════════════════════════════════════════════════════════════════════╣
+              ║                              📋 COMMANDS TO EXECUTE                          ║
+              ╠═══════════════════════════════════════════════════════════════════════════════╣
+              ║ interface {{ target_port }}
+              ║ description {{ port_description }}
+              ║ switchport mode access
+              ║ switchport access vlan {{ target_vlan }}
+              ║ no shutdown
+              ╠═══════════════════════════════════════════════════════════════════════════════╣
+              ║                           ✅ CONFIGURATION SIMULATION COMPLETE               ║
+              ╚═══════════════════════════════════════════════════════════════════════════════╝
       when: switch_name == "cisco_nexus"
 
     - name: Simulate VLAN assignment on Access Switch
       block:
-        - name: Simulate port configuration
+        - name: Simulate port configuration with beautiful formatting
           debug:
             msg: |
-              ACCESS SWITCH CONFIGURATION SIMULATION
-              ======================================
-              Switch: {{ switch_config.name }}
-              IP: {{ switch_config.ip }}
-              Port: {{ target_port }}
-              VLAN: {{ target_vlan }} ({{ switch_config.vlan_assignments[target_vlan | int] }})
-              Description: {{ port_description }}
-              
-              Commands that would be executed:
-              - interface {{ target_port }}
-              - description {{ port_description }}
-              - switchport mode access
-              - switchport access vlan {{ target_vlan }}
-              - spanning-tree portfast
-              - no shutdown
-              
-              ✅ Configuration simulation completed successfully!
+              ╔═══════════════════════════════════════════════════════════════════════════════╗
+              ║                    🔌 ACCESS SWITCH CONFIGURATION                             ║
+              ╠═══════════════════════════════════════════════════════════════════════════════╣
+              ║ Switch: {{ switch_config.name }}
+              ║ IP Address: {{ switch_config.ip }}
+              ║ Target Port: {{ target_port }}
+              ║ VLAN ID: {{ target_vlan }}
+              ║ VLAN Name: {{ switch_config.vlan_assignments[target_vlan | int] }}
+              ║ Description: {{ port_description }}
+              ║ Timestamp: {{ ansible_date_time.iso8601 }}
+              ╠═══════════════════════════════════════════════════════════════════════════════╣
+              ║                              📋 COMMANDS TO EXECUTE                          ║
+              ╠═══════════════════════════════════════════════════════════════════════════════╣
+              ║ interface {{ target_port }}
+              ║ description {{ port_description }}
+              ║ switchport mode access
+              ║ switchport access vlan {{ target_vlan }}
+              ║ spanning-tree portfast
+              ║ no shutdown
+              ╠═══════════════════════════════════════════════════════════════════════════════╣
+              ║                           ✅ CONFIGURATION SIMULATION COMPLETE               ║
+              ╚═══════════════════════════════════════════════════════════════════════════════╝
       when: switch_name == "access_switch"
 
   post_tasks:
-    - name: Verify port configuration
+    - name: Display beautiful configuration summary
       debug:
-        msg: "Port {{ target_port }} successfully configured for VLAN {{ target_vlan }}"
-
-    - name: Display next steps
-      debug:
-        msg:
-          - "=== CONFIGURATION COMPLETE ==="
-          - "Port {{ target_port }} is now assigned to VLAN {{ target_vlan }}"
-          - "Description: {{ port_description }}"
-          - "Switch: {{ switch_config.name }}"
-          - "============================="
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                        ✅ CONFIGURATION COMPLETE                             ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ Port: {{ target_port }}
+          ║ VLAN: {{ target_vlan }} ({{ switch_config.vlan_assignments[target_vlan | int] }})
+          ║ Description: {{ port_description }}
+          ║ Switch: {{ switch_config.name }}
+          ║ IP Address: {{ switch_config.ip }}
+          ║ Completion Time: {{ ansible_date_time.iso8601 }}
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ 💡 Next Steps:                                                              ║
+          ║   1. Verify physical connection on {{ target_port }}                        ║
+          ║   2. Test network connectivity on VLAN {{ target_vlan }}                    ║
+          ║   3. Update network documentation                                           ║
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
 

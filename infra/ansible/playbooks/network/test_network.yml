@@ -8,48 +8,63 @@
     target_host: "{{ target_host | default('172.23.5.1') }}"
   
   tasks:
-    - name: Display test configuration
+    - name: Display test configuration with beautiful formatting
       debug:
         msg: |
-          🌐 Network Ping Test Configuration
-          ==================================
-          Target Host: {{ target_host }}
-          Timestamp: {{ ansible_date_time.iso8601 }}
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                        🌐 NETWORK PING TEST CONFIGURATION                    ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ Target Host: {{ target_host }}
+          ║ Test Type: ICMP Ping (3 packets)
+          ║ Timestamp: {{ ansible_date_time.iso8601 }}
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
     
     - name: Ping target host
       command: ping -c 3 {{ target_host }}
       register: ping_result
       failed_when: false
     
-    - name: Display ping results
+    - name: Display ping results with beautiful formatting
       debug:
         msg: |
-          🎯 Ping Test Results
-          ===================
-          Target Host: {{ target_host }}
-          Exit Code: {{ ping_result.rc }}
-          {% if ping_result.rc == 0 %}
-          Status: ✅ SUCCESS - Host is reachable
-          {% else %}
-          Status: ❌ FAILED - Host is not reachable
-          {% endif %}
-          
-          {% if ping_result.stdout is defined %}
-          Ping Output:
-          {{ ping_result.stdout }}
-          {% endif %}
-          
-          {% if ping_result.stderr is defined and ping_result.stderr != '' %}
-          Error Output:
-          {{ ping_result.stderr }}
-          {% endif %}
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                            🎯 PING TEST RESULTS                              ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ Target Host: {{ target_host }}
+          ║ Exit Code: {{ ping_result.rc }}
+          ║ {% if ping_result.rc == 0 %}
+          ║ Status: ✅ SUCCESS - Host is reachable
+          ║ {% else %}
+          ║ Status: ❌ FAILED - Host is not reachable
+          ║ {% endif %}
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║                              📊 PING OUTPUT                                  ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ {% if ping_result.stdout is defined %}
+          ║ {{ ping_result.stdout | replace('\n', '\n║ ') }}
+          ║ {% endif %}
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ {% if ping_result.stderr is defined and ping_result.stderr != '' %}
+          ║ ⚠️  ERROR OUTPUT:
+          ║ {{ ping_result.stderr | replace('\n', '\n║ ') }}
+          ║ {% endif %}
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
 
   post_tasks:
-    - name: Test summary
+    - name: Display beautiful test summary
       debug:
         msg: |
-          🎯 Network Ping Test Complete
-          =============================
-          Target Host: {{ target_host }}
-          Final Status: {{ 'SUCCESS' if ping_result.rc == 0 else 'FAILED' }}
-          Timestamp: {{ ansible_date_time.iso8601 }}
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                        ✅ NETWORK PING TEST COMPLETE                          ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ Target Host: {{ target_host }}
+          ║ Final Status: {{ 'SUCCESS' if ping_result.rc == 0 else 'FAILED' }}
+          ║ Completion Time: {{ ansible_date_time.iso8601 }}
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ 💡 Next Steps:                                                              ║
+          ║   {% if ping_result.rc == 0 %}
+          ║   ✅ Host is reachable - Network connectivity is working                     ║
+          ║   {% else %}
+          ║   ❌ Host is not reachable - Check network configuration                     ║
+          ║   {% endif %}
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
