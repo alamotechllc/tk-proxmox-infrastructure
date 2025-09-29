@@ -307,13 +307,15 @@
             list
           }}
 
-    - name: Calculate port statistics
-      set_fact:
-        port_stats: >-
+    - name: Display filtered access ports with beautiful formatting
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                    🔌 ACCESS PORTS ({{ port_filter | upper }} FILTER)                     ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
           {% set active_count = 0 %}
           {% set inactive_count = 0 %}
           {% set displayed_count = 0 %}
-          {% set filtered_ports = [] %}
           
           {% for port in switch_config.safe_ports.access_ports %}
             {% set port_desc = switch_config.port_descriptions.get(port, 'Available - Access Port') if switch_config.port_descriptions is defined else 'Available - Access Port' %}
@@ -331,27 +333,15 @@
                   (port_filter == 'inactive' and is_inactive) or 
                   (port_filter == 'access_only') %}
               {% set displayed_count = displayed_count + 1 %}
-              {% set _ = filtered_ports.append({'port': port, 'desc': port_desc, 'active': is_active, 'inactive': is_inactive, 'count': displayed_count}) %}
+          ║ {{ '%2d'|format(displayed_count) }}. {{ '%-20s'|format(port) }} │ {{ '🟢' if is_active else '⚫' }} {{ '%-8s'|format('ACTIVE' if is_active else 'INACTIVE') }} │ {{ port_desc }} ║
             {% endif %}
-          {% endfor %}
-          
-          {{ {'active_count': active_count, 'inactive_count': inactive_count, 'displayed_count': displayed_count, 'filtered_ports': filtered_ports} }}
-
-    - name: Display filtered access ports with beautiful formatting
-      debug:
-        msg: |
-          ╔═══════════════════════════════════════════════════════════════════════════════╗
-          ║                    🔌 ACCESS PORTS ({{ port_filter | upper }} FILTER)                     ║
-          ╠═══════════════════════════════════════════════════════════════════════════════╣
-          {% for port_info in port_stats.filtered_ports %}
-          ║ {{ '%2d'|format(port_info.count) }}. {{ '%-20s'|format(port_info.port) }} │ {{ '🟢' if port_info.active else '⚫' }} {{ '%-8s'|format('ACTIVE' if port_info.active else 'INACTIVE') }} │ {{ port_info.desc }} ║
           {% endfor %}
           
           ╠═══════════════════════════════════════════════════════════════════════════════╣
           ║                              📊 PORT SUMMARY                                 ║
           ╠═══════════════════════════════════════════════════════════════════════════════╣
-          ║ Total Access Ports: {{ '%2d'|format(switch_config.safe_ports.access_ports | length) }}              │ Active Ports: {{ '%2d'|format(port_stats.active_count) }}              │ Inactive: {{ '%2d'|format(port_stats.inactive_count) }}
-          ║ Displayed: {{ '%2d'|format(port_stats.displayed_count) }} ({{ port_filter }} filter)                                    │
+          ║ Total Access Ports: {{ '%2d'|format(switch_config.safe_ports.access_ports | length) }}              │ Active Ports: {{ '%2d'|format(active_count) }}              │ Inactive: {{ '%2d'|format(inactive_count) }}
+          ║ Displayed: {{ '%2d'|format(displayed_count) }} ({{ port_filter }} filter)                                    │
           ╠═══════════════════════════════════════════════════════════════════════════════╣
           ║ Filter Description: {{ 
             'Showing only access ports (no trunk/LAG)' if port_filter == 'access_only' else
