@@ -56,7 +56,7 @@
     
     - name: Debug public IP result
       debug:
-        msg: "Body: '{{ public_ip_result.body }}', Content: '{{ public_ip_result.content }}', JSON: '{{ public_ip_result.json }}'"
+        msg: "All keys: {{ public_ip_result.keys() | list }}"
       when: opnsense_connectivity.status == 200
     
     - name: Get detailed IP information
