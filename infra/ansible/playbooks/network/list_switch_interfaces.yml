@@ -286,12 +286,16 @@
   tasks:
     - name: Display switch information
       debug:
-        msg:
-          - "=== SWITCH INFORMATION ==="
-          - "Name: {{ switch_config.name }}"
-          - "IP Address: {{ switch_config.ip }}"
-          - "Model: {{ switch_config.model }}"
-          - "========================="
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                           🏢 SWITCH INFORMATION                              ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ Switch Name: {{ switch_config.name }}
+          ║ IP Address:  {{ switch_config.ip }}
+          ║ Model:       {{ switch_config.model }}
+          ║ Filter:      {{ port_filter | upper }}
+          ║ Timestamp:   {{ ansible_date_time.iso8601 }}
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
 
     - name: Filter access ports by status
       set_fact:
@@ -303,11 +307,12 @@
             list
           }}
 
-    - name: Display filtered access ports
+    - name: Display filtered access ports with beautiful formatting
       debug:
         msg: |
-          🔌 ACCESS PORTS ({{ port_filter | upper }} FILTER)
-          ================================================
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                    🔌 ACCESS PORTS ({{ port_filter | upper }} FILTER)                     ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
           {% set active_count = 0 %}
           {% set inactive_count = 0 %}
           {% set displayed_count = 0 %}
@@ -328,25 +333,25 @@
                   (port_filter == 'inactive' and is_inactive) or 
                   (port_filter == 'access_only') %}
               {% set displayed_count = displayed_count + 1 %}
-          {{ displayed_count }}. {{ port }} - {{ port_desc }}
+              {% set status_icon = '🟢' if is_active else '⚫' %}
+              {% set status_text = 'ACTIVE' if is_active else 'INACTIVE' %}
+          ║ {{ '%2d'|format(displayed_count) }}. {{ '%-20s'|format(port) }} │ {{ status_icon }} {{ '%-8s'|format(status_text) }} │ {{ port_desc }}
             {% endif %}
           {% endfor %}
           
-          📊 SUMMARY:
-          - Total Access Ports: {{ switch_config.safe_ports.access_ports | length }}
-          - Active Ports: {{ active_count }}
-          - Inactive Ports: {{ inactive_count }}
-          - Displayed: {{ displayed_count }} ({{ port_filter }} filter)
-          
-          {% if port_filter == 'access_only' %}
-          📝 Showing only access ports (no trunk ports or LAGs)
-          {% elif port_filter == 'active' %}
-          📝 Showing only active ports (currently in use)
-          {% elif port_filter == 'inactive' %}
-          📝 Showing only inactive ports (available for assignment)
-          {% else %}
-          📝 Showing all access ports
-          {% endif %}
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║                              📊 PORT SUMMARY                                 ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ Total Access Ports: {{ '%2d'|format(switch_config.safe_ports.access_ports | length) }}              │ Active Ports: {{ '%2d'|format(active_count) }}              │ Inactive: {{ '%2d'|format(inactive_count) }}
+          ║ Displayed: {{ '%2d'|format(displayed_count) }} ({{ port_filter }} filter)                                    │
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ Filter Description: {{ 
+            'Showing only access ports (no trunk/LAG)' if port_filter == 'access_only' else
+            'Showing only active ports (currently in use)' if port_filter == 'active' else
+            'Showing only inactive ports (available for assignment)' if port_filter == 'inactive' else
+            'Showing all access ports'
+          }}
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
 
     - name: Display gaming zone ports (Cisco Nexus only)
       debug:
@@ -372,27 +377,31 @@
           🚀 These ports support 10GbE connections.
       when: switch_config.safe_ports.get('high_speed_ports') is defined
 
-    - name: Display trunk ports
+    - name: Display trunk ports with beautiful formatting
       debug:
         msg: |
-          🔗 TRUNK PORTS (Protected - Do Not Modify)
-          ==========================================
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                    🔗 TRUNK PORTS (Protected - Do Not Modify)               ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
           {% for port in switch_config.safe_ports.get('trunk_ports', []) %}
-          {{ loop.index }}. {{ port }}
+          ║ {{ '%2d'|format(loop.index) }}. {{ '%-70s'|format(port) }} ║
           {% endfor %}
-          
-          ⚠️  These ports are protected and should not be modified.
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ ⚠️  These ports are protected and should not be modified.                    ║
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
 
-    - name: Display management ports
+    - name: Display management ports with beautiful formatting
       debug:
         msg: |
-          🛠️  MANAGEMENT PORTS (Protected - Do Not Modify)
-          ===============================================
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                  🛠️  MANAGEMENT PORTS (Protected - Do Not Modify)           ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
           {% for port in switch_config.safe_ports.get('management_ports', []) %}
-          {{ loop.index }}. {{ port }}
+          ║ {{ '%2d'|format(loop.index) }}. {{ '%-70s'|format(port) }} ║
           {% endfor %}
-          
-          ⚠️  These ports are protected and should not be modified.
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ ⚠️  These ports are protected and should not be modified.                    ║
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
 
     - name: Display uplink ports (Access Switch only)
       debug:
@@ -406,16 +415,18 @@
           ⚠️  These ports are protected and should not be modified.
       when: switch_config.safe_ports.get('uplink_ports') is defined
 
-    - name: Display VLAN reference
+    - name: Display VLAN reference with beautiful formatting
       debug:
         msg: |
-          🏷️  AVAILABLE VLANS FOR ASSIGNMENT
-          ==================================
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                    🏷️  AVAILABLE VLANS FOR ASSIGNMENT                      ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
           {% for vlan_id, vlan_info in vlan_definitions.items() %}
-          VLAN {{ vlan_id }}: {{ vlan_info }}
+          ║ VLAN {{ '%2s'|format(vlan_id) }} │ {{ '%-65s'|format(vlan_info) }} ║
           {% endfor %}
-          
-          📋 Use these VLAN IDs when assigning ports.
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ 📋 Use these VLAN IDs when assigning ports.                                 ║
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
 
     - name: Display usage examples
       debug:
@@ -451,12 +462,17 @@
           {% endif %}
 
   post_tasks:
-    - name: Display summary
+    - name: Display beautiful summary
       debug:
-        msg:
-          - "=== INTERFACE LISTING COMPLETE ==="
-          - "Switch: {{ switch_config.name }}"
-          - "Total Access Ports: {{ switch_config.safe_ports.access_ports | length }}"
-          - "Protected Ports: {{ (switch_config.safe_ports.get('trunk_ports', []) + switch_config.safe_ports.get('management_ports', []) + switch_config.safe_ports.get('uplink_ports', [])) | length }}"
-          - "================================"
-          - "Use this information to select the correct port for VLAN assignment."
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                      ✅ INTERFACE LISTING COMPLETE                          ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ Switch: {{ switch_config.name }}
+          ║ Filter Applied: {{ port_filter | upper }}
+          ║ Total Access Ports: {{ switch_config.safe_ports.access_ports | length }}
+          ║ Protected Ports: {{ (switch_config.safe_ports.get('trunk_ports', []) + switch_config.safe_ports.get('management_ports', []) + switch_config.safe_ports.get('uplink_ports', [])) | length }}
+          ║ Completion Time: {{ ansible_date_time.iso8601 }}
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ 💡 Use this information to select the correct port for VLAN assignment.     ║
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
