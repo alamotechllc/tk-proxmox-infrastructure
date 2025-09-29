@@ -42,7 +42,7 @@
   tasks:
     - name: Get system information
       uri:
-        url: "https://{{ opnsense_host }}/api/core/system/information"
+        url: "https://{{ opnsense_host }}/api/core/firmware/info"
         method: GET
         user: "{{ opnsense_api_key }}"
         password: "{{ opnsense_api_secret }}"
@@ -60,11 +60,10 @@
           ║                       💻 OPNsense SYSTEM INFORMATION                        ║
           ╠═══════════════════════════════════════════════════════════════════════════════╣
           ║ {% if system_info.json is defined %}
-          ║ Hostname: {{ system_info.json.hostname }}
-          ║ Domain: {{ system_info.json.domain }}
-          ║ Timezone: {{ system_info.json.timezone }}
-          ║ Uptime: {{ system_info.json.uptime }}
-          ║ Load Average: {{ system_info.json.load_average }}
+          ║ Product: {{ system_info.json.product_id | default('Unknown') }}
+          ║ Version: {{ system_info.json.product_version | default('Unknown') }}
+          ║ Build: {{ system_info.json.product_name | default('Unknown') }}
+          ║ Architecture: {{ system_info.json.product_arch | default('Unknown') }}
           ║ {% else %}
           ║ ❌ Failed to retrieve system information
           ║ {% endif %}
