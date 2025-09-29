@@ -1,0 +1,21 @@
+---
+- name: "Debug Environment Variables"
+  hosts: localhost
+  gather_facts: true
+  serial: 1
+  
+  tasks:
+    - name: Display all environment variables
+      debug:
+        msg: |
+          🔍 Environment Variables Debug
+          ==============================
+          opnsense_host: {{ opnsense_host | default('NOT_DEFINED') }}
+          opnsense_api_key: {{ opnsense_api_key | default('NOT_DEFINED') }}
+          opnsense_api_secret: {{ opnsense_api_secret | default('NOT_DEFINED') }}
+          opnsense_verify_ssl: {{ opnsense_verify_ssl | default('NOT_DEFINED') }}
+          
+          All available variables:
+          {% for key, value in vars.items() %}
+          {{ key }}: {{ value | default('NOT_DEFINED') }}
+          {% endfor %}
