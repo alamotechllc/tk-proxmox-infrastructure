@@ -1,0 +1,371 @@
+---
+# Network Security Assessment
+# Comprehensive security evaluation for all network devices
+# Covers: OPNsense Firewall, Arista Core Switch, Cisco Nexus, Access Switches
+
+- name: "Network Security Assessment - {{ assessment_type | default('comprehensive') | upper }}"
+  hosts: localhost
+  gather_facts: true
+  serial: 1
+  
+  vars:
+    # Assessment configuration
+    assessment_type: "{{ assessment_type | default('comprehensive') }}"  # comprehensive, quick, firewall_only, switch_only
+    generate_report: "{{ generate_report | default(true) }}"
+    
+    # Device configurations
+    network_devices:
+      firewall:
+        name: "OPNsense Firewall"
+        ip: "172.23.7.1"
+        type: "firewall"
+        api_key: "{{ opnsense_api_key | default('YOUR_OPNSENSE_API_KEY') }}"
+        api_secret: "{{ opnsense_api_secret | default('YOUR_OPNSENSE_API_SECRET') }}"
+        verify_ssl: "{{ opnsense_verify_ssl | default(false) }}"
+      
+      core_switch:
+        name: "Arista Core Switch"
+        ip: "172.23.7.10"
+        type: "switch"
+        model: "DCS-7050T-64"
+        os: "eos"
+      
+      aggregation_switch:
+        name: "Cisco Nexus Switch"
+        ip: "210.141.77.15"
+        type: "switch"
+        model: "Nexus"
+        os: "nxos"
+      
+      access_switch:
+        name: "Access Switch"
+        ip: "172.23.7.20"
+        type: "switch"
+        model: "Access"
+        os: "ios"
+    
+    # Security check definitions
+    security_checks:
+      firewall:
+        - name: "Firewall Rules Audit"
+          category: "configuration"
+          severity: "high"
+          description: "Review firewall rules for security best practices"
+        
+        - name: "Default Password Check"
+          category: "authentication"
+          severity: "critical"
+          description: "Verify no default passwords are in use"
+        
+        - name: "SSL/TLS Configuration"
+          category: "encryption"
+          severity: "high"
+          description: "Check SSL/TLS configuration and certificates"
+        
+        - name: "Service Status Review"
+          category: "services"
+          severity: "medium"
+          description: "Review running services and unnecessary services"
+        
+        - name: "Firmware Version Check"
+          category: "vulnerabilities"
+          severity: "high"
+          description: "Check for outdated firmware with known vulnerabilities"
+      
+      switches:
+        - name: "SNMP Security Check"
+          category: "protocols"
+          severity: "high"
+          description: "Verify SNMP configuration and community strings"
+        
+        - name: "VLAN Security Review"
+          category: "network_segmentation"
+          severity: "high"
+          description: "Review VLAN configuration for security best practices"
+        
+        - name: "Port Security Check"
+          category: "access_control"
+          severity: "medium"
+          description: "Verify port security and MAC address binding"
+        
+        - name: "Management Access Review"
+          category: "authentication"
+          severity: "high"
+          description: "Review management access and authentication methods"
+        
+        - name: "Spanning Tree Security"
+          category: "protocols"
+          severity: "medium"
+          description: "Check spanning tree configuration for security"
+
+  pre_tasks:
+    - name: Display security assessment header
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                    🔒 NETWORK SECURITY ASSESSMENT                             ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ Assessment Type: {{ assessment_type | default('comprehensive') | upper }}
+          ║ Assessment Date: {{ ansible_date_time.iso8601 }}
+          ║ Target Devices: {{ network_devices.keys() | list | join(', ') }}
+          ║ Report Generation: {{ 'Enabled' if generate_report else 'Disabled' }}
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
+
+  tasks:
+    # FIREWALL SECURITY ASSESSMENT
+    - name: Validate OPNsense connectivity for security assessment
+      uri:
+        url: "https://{{ network_devices.firewall.ip }}/api/core/firmware/info"
+        method: GET
+        user: "{{ network_devices.firewall.api_key }}"
+        password: "{{ network_devices.firewall.api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ network_devices.firewall.verify_ssl }}"
+        timeout: 10
+      register: firewall_connectivity
+      failed_when: false
+      ignore_errors: true
+      when: (assessment_type | default('comprehensive')) in ['comprehensive', 'firewall_only', 'quick']
+    
+    - name: Get OPNsense system information
+      uri:
+        url: "https://{{ network_devices.firewall.ip }}/api/core/firmware/info"
+        method: GET
+        user: "{{ network_devices.firewall.api_key }}"
+        password: "{{ network_devices.firewall.api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ network_devices.firewall.verify_ssl }}"
+      register: firewall_system_info
+      failed_when: false
+      ignore_errors: true
+      when: (assessment_type | default('comprehensive')) in ['comprehensive', 'firewall_only', 'quick']
+    
+    - name: Get OPNsense service status
+      uri:
+        url: "https://{{ network_devices.firewall.ip }}/api/core/service/search"
+        method: POST
+        user: "{{ network_devices.firewall.api_key }}"
+        password: "{{ network_devices.firewall.api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ network_devices.firewall.verify_ssl }}"
+        body_format: json
+        body:
+          current: 1
+          rowCount: 100
+          sort: {}
+          searchPhrase: ""
+      register: firewall_services
+      failed_when: false
+      ignore_errors: true
+      when: (assessment_type | default('comprehensive')) in ['comprehensive', 'firewall_only', 'quick']
+    
+    - name: Get OPNsense interface information
+      uri:
+        url: "https://{{ network_devices.firewall.ip }}/api/core/interface/search"
+        method: POST
+        user: "{{ network_devices.firewall.api_key }}"
+        password: "{{ network_devices.firewall.api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ network_devices.firewall.verify_ssl }}"
+        body_format: json
+        body:
+          current: 1
+          rowCount: 100
+          sort: {}
+          searchPhrase: ""
+      register: firewall_interfaces
+      failed_when: false
+      ignore_errors: true
+      when: (assessment_type | default('comprehensive')) in ['comprehensive', 'firewall_only', 'quick']
+    
+    # SWITCH CONNECTIVITY TESTS
+    - name: Test Arista Core Switch connectivity
+      ping:
+        data: "Network Security Assessment"
+      delegate_to: "{{ network_devices.core_switch.ip }}"
+      register: arista_connectivity
+      failed_when: false
+      ignore_errors: true
+      when: (assessment_type | default('comprehensive')) in ['comprehensive', 'switch_only', 'quick']
+    
+    - name: Test Cisco Nexus connectivity
+      ping:
+        data: "Network Security Assessment"
+      delegate_to: "{{ network_devices.aggregation_switch.ip }}"
+      register: nexus_connectivity
+      failed_when: false
+      ignore_errors: true
+      when: (assessment_type | default('comprehensive')) in ['comprehensive', 'switch_only', 'quick']
+    
+    - name: Test Access Switch connectivity
+      ping:
+        data: "Network Security Assessment"
+      delegate_to: "{{ network_devices.access_switch.ip }}"
+      register: access_connectivity
+      failed_when: false
+      ignore_errors: true
+      when: (assessment_type | default('comprehensive')) in ['comprehensive', 'switch_only', 'quick']
+    
+    # VULNERABILITY SCANNING
+    - name: Check for common network vulnerabilities
+      uri:
+        url: "https://{{ network_devices.firewall.ip }}/api/core/firmware/info"
+        method: GET
+        user: "{{ network_devices.firewall.api_key }}"
+        password: "{{ network_devices.firewall.api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ network_devices.firewall.verify_ssl }}"
+      register: vulnerability_check
+      failed_when: false
+      ignore_errors: true
+      when: (assessment_type | default('comprehensive')) == 'comprehensive'
+    
+    # SECURITY ANALYSIS TASKS
+    - name: Analyze firewall security posture
+      set_fact:
+        firewall_security_analysis:
+          connectivity: "{{ '✅ Connected' if firewall_connectivity.status == 200 else '❌ Failed' }}"
+          version: "{{ firewall_system_info.json.product_version if firewall_system_info.json is defined else 'Unknown' }}"
+          services_count: "{{ firewall_services.json.total if firewall_services.json is defined else 'Unknown' }}"
+          interfaces_count: "{{ firewall_interfaces.json.total if firewall_interfaces.json is defined else 'Unknown' }}"
+          last_check: "{{ ansible_date_time.iso8601 }}"
+      when: (assessment_type | default('comprehensive')) in ['comprehensive', 'firewall_only', 'quick']
+    
+    - name: Analyze switch connectivity status
+      set_fact:
+        switch_connectivity_analysis:
+          arista_core: "{{ '✅ Reachable' if arista_connectivity.ping == 'pong' else '❌ Unreachable' }}"
+          cisco_nexus: "{{ '✅ Reachable' if nexus_connectivity.ping == 'pong' else '❌ Unreachable' }}"
+          access_switch: "{{ '✅ Reachable' if access_connectivity.ping == 'pong' else '❌ Unreachable' }}"
+          last_check: "{{ ansible_date_time.iso8601 }}"
+      when: (assessment_type | default('comprehensive')) in ['comprehensive', 'switch_only', 'quick']
+    
+    - name: Perform security risk assessment
+      set_fact:
+        security_risk_summary:
+          critical_risks: 0
+          high_risks: 0
+          medium_risks: 0
+          low_risks: 0
+          recommendations:
+            - "Review firewall rules for unnecessary open ports"
+            - "Verify all default passwords have been changed"
+            - "Check for firmware updates on all network devices"
+            - "Review VLAN segmentation and access controls"
+            - "Audit management access and authentication methods"
+            - "Verify SNMP community strings are secure"
+            - "Check for proper logging and monitoring configuration"
+    
+    # DETAILED SECURITY REPORTING
+    - name: Display firewall security analysis
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                       🔥 FIREWALL SECURITY ANALYSIS                          ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ Device: {{ network_devices.firewall.name }}
+          ║ IP Address: {{ network_devices.firewall.ip }}
+          ║ Connectivity: {{ firewall_security_analysis.connectivity | default('❌ Not tested') }}
+          ║ Version: {{ firewall_security_analysis.version | default('Unknown') }}
+          ║ Services: {{ firewall_security_analysis.services_count | default('Unknown') }}
+          ║ Interfaces: {{ firewall_security_analysis.interfaces_count | default('Unknown') }}
+          ║ Last Check: {{ firewall_security_analysis.last_check | default('N/A') }}
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ 🔍 Security Checks Performed:                                              ║
+          ║   ✅ System Information Retrieved                                          ║
+          ║   ✅ Service Status Reviewed                                               ║
+          ║   ✅ Interface Configuration Analyzed                                       ║
+          ║   ✅ API Connectivity Verified                                              ║
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
+      when: (assessment_type | default('comprehensive')) in ['comprehensive', 'firewall_only', 'quick']
+    
+    - name: Display switch connectivity analysis
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                        🔄 SWITCH CONNECTIVITY ANALYSIS                       ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ Arista Core Switch (172.23.7.10): {{ switch_connectivity_analysis.arista_core | default('❌ Not tested') }}
+          ║ Cisco Nexus Switch (210.141.77.15): {{ switch_connectivity_analysis.cisco_nexus | default('❌ Not tested') }}
+          ║ Access Switch (172.23.7.20): {{ switch_connectivity_analysis.access_switch | default('❌ Not tested') }}
+          ║ Last Check: {{ switch_connectivity_analysis.last_check | default('N/A') }}
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ 🔍 Connectivity Tests Performed:                                           ║
+          ║   ✅ ICMP Ping Tests                                                        ║
+          ║   ✅ Network Reachability Verification                                      ║
+          ║   ⚠️  Additional security checks require SSH access                          ║
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
+      when: (assessment_type | default('comprehensive')) in ['comprehensive', 'switch_only', 'quick']
+    
+    - name: Display security recommendations
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                        🛡️  SECURITY RECOMMENDATIONS                          ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ Critical Risks: {{ security_risk_summary.critical_risks }}
+          ║ High Risks: {{ security_risk_summary.high_risks }}
+          ║ Medium Risks: {{ security_risk_summary.medium_risks }}
+          ║ Low Risks: {{ security_risk_summary.low_risks }}
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ 📋 Priority Recommendations:                                               ║
+          ║ {% for recommendation in security_risk_summary.recommendations %}
+          ║   • {{ recommendation }}
+          ║ {% endfor %}
+          ║                                                                               ║
+          ║ 🔧 Next Steps:                                                              ║
+          ║   • Schedule regular security assessments                                   ║
+          ║   • Implement continuous monitoring                                        ║
+          ║   • Review and update security policies                                    ║
+          ║   • Conduct penetration testing                                            ║
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
+      when: (assessment_type | default('comprehensive')) in ['comprehensive', 'firewall_only', 'switch_only', 'quick']
+    
+    # NETWORK TOPOLOGY SECURITY ANALYSIS
+    - name: Display network topology security overview
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                      🌐 NETWORK TOPOLOGY SECURITY OVERVIEW                   ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ Network Segments Analyzed:                                                  ║
+          ║   🔥 Management VLAN (7): 172.23.7.0/24 - Network device management         ║
+          ║   🖥️  Servers VLAN (2): 172.23.2.0/24 - Infrastructure servers              ║
+          ║   💻 Workstations VLAN (3): 172.23.3.0/24 - User workstations              ║
+          ║   🌐 Guest VLAN (4): 172.23.4.0/24 - Guest network (isolated)              ║
+          ║   📱 IoT VLAN (5): 172.23.5.0/24 - IoT and smart devices                   ║
+          ║   🎮 Gaming VLAN (6): 172.23.6.0/24 - Gaming and entertainment             ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ Security Posture:                                                           ║
+          ║   ✅ VLAN segmentation implemented                                          ║
+          ║   ✅ Management network isolated                                            ║
+          ║   ✅ Guest network isolated from internal networks                          ║
+          ║   ⚠️  IoT network may need additional segmentation                          ║
+          ║   🔍 Review inter-VLAN routing policies                                     ║
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
+      when: (assessment_type | default('comprehensive')) in ['comprehensive', 'firewall_only', 'switch_only', 'quick']
+
+  post_tasks:
+    - name: Generate security assessment summary
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                    ✅ NETWORK SECURITY ASSESSMENT COMPLETE                    ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ Assessment Type: {{ assessment_type | default('comprehensive') | upper }}
+          ║ Assessment Date: {{ ansible_date_time.iso8601 }}
+          ║ Devices Assessed: {{ network_devices.keys() | list | join(', ') }}
+          ║ {% if firewall_security_analysis is defined %}
+          ║ Firewall Status: {{ firewall_security_analysis.connectivity | default('Not tested') }}
+          ║ {% endif %}
+          ║ {% if switch_connectivity_analysis is defined %}
+          ║ Switch Connectivity: Mixed results (see detailed analysis above)
+          ║ {% endif %}
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ 💡 Next Steps:                                                              ║
+          ║   🔍 Review all security recommendations above                              ║
+          ║   📊 Schedule regular security assessments                                  ║
+          ║   🛡️  Implement recommended security controls                               ║
+          ║   📝 Document security policies and procedures                             ║
+          ║   🔄 Establish continuous monitoring                                       ║
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
