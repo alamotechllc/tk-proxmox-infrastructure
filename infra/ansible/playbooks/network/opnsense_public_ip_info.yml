@@ -46,27 +46,19 @@
   tasks:
     
     - name: Get current public IP via external service
-      uri:
-        url: "https://api.ipify.org"
-        method: GET
-        timeout: 10
+      shell: curl -s --connect-timeout 10 https://api.ipify.org
       register: public_ip_result
       failed_when: false
       when: opnsense_connectivity.status == 200
     
-    - name: Debug public IP result
-      debug:
-        msg: "All keys: {{ public_ip_result.keys() | list }}"
-      when: opnsense_connectivity.status == 200
-    
     - name: Get detailed IP information
       uri:
-        url: "https://ipapi.co/{{ public_ip_result.content | trim }}/json/"
+        url: "https://ipapi.co/{{ public_ip_result.stdout | trim }}/json/"
         method: GET
         timeout: 10
       register: ip_details
       failed_when: false
-      when: public_ip_result.status == 200 and public_ip_result.content is defined
+      when: public_ip_result.rc == 0 and public_ip_result.stdout is defined
     
     
     - name: Display current public IP with beautiful formatting
@@ -75,14 +67,14 @@
           ╔═══════════════════════════════════════════════════════════════════════════════╗
           ║                           🌍 CURRENT PUBLIC IP ADDRESS                       ║
           ╠═══════════════════════════════════════════════════════════════════════════════╣
-          ║ {% if public_ip_result.status == 200 %}
-          ║ Public IP: {{ public_ip_result.content | trim }}
+          ║ {% if public_ip_result.rc == 0 %}
+          ║ Public IP: {{ public_ip_result.stdout | trim }}
           ║ Detection Method: External API (ipify.org)
           ║ Status: ✅ Successfully detected
           ║ {% else %}
           ║ Public IP: Unable to determine
           ║ Status: ❌ Failed to detect external IP
-          ║ Error: {{ public_ip_result.msg | default('Unknown error') }}
+          ║ Error: {{ public_ip_result.stderr | default('Unknown error') }}
           ║ {% endif %}
           ║ Timestamp: {{ ansible_date_time.iso8601 }}
           ╚═══════════════════════════════════════════════════════════════════════════════╝
@@ -109,7 +101,7 @@
           ║ {% endif %}
           ║ {% endif %}
           ╚═══════════════════════════════════════════════════════════════════════════════╝
-      when: opnsense_connectivity.status == 200 and public_ip_result.status == 200
+      when: opnsense_connectivity.status == 200 and public_ip_result.rc == 0
 
   post_tasks:
     - name: Display beautiful summary
@@ -119,8 +111,8 @@
           ║                    ✅ OPNsense PUBLIC IP INFORMATION COMPLETE                 ║
           ╠═══════════════════════════════════════════════════════════════════════════════╣
           ║ OPNsense Host: {{ opnsense_host }}
-          ║ {% if public_ip_result.status == 200 %}
-          ║ Current Public IP: {{ public_ip_result.content | trim }}
+          ║ {% if public_ip_result.rc == 0 %}
+          ║ Current Public IP: {{ public_ip_result.stdout | trim }}
           ║ {% else %}
           ║ Public IP Status: ❌ Unable to determine
           ║ {% endif %}
