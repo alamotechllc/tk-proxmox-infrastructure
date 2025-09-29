@@ -40,7 +40,7 @@
       access_switch:
         name: "Access Layer Switch (8-port)"
         ip: "172.23.7.20"  # Example IP
-        safe_ports: ["GigabitEthernet0/1-7"]  # Ports 1-7 (8 is uplink)
+        safe_ports: ["GigabitEthernet0/1", "GigabitEthernet0/2", "GigabitEthernet0/3", "GigabitEthernet0/4", "GigabitEthernet0/5", "GigabitEthernet0/6", "GigabitEthernet0/7"]  # Ports 1-7 (8 is uplink)
         protected_ports: ["GigabitEthernet0/8"]  # Uplink port
         vlan_assignments:
           3: "WORKSTATIONS - Office equipment"
