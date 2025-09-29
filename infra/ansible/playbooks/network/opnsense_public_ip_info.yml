@@ -56,12 +56,12 @@
     
     - name: Get detailed IP information
       uri:
-        url: "https://ipapi.co/{{ public_ip_result.content | trim }}/json/"
+        url: "https://ipapi.co/{{ (public_ip_result.json | trim | default(public_ip_result.content | trim)) }}/json/"
         method: GET
         timeout: 10
       register: ip_details
       failed_when: false
-      when: public_ip_result.status == 200 and public_ip_result.content is defined
+      when: public_ip_result.status == 200 and (public_ip_result.json is defined or public_ip_result.content is defined)
     
     
     - name: Display current public IP with beautiful formatting
@@ -71,7 +71,7 @@
           ║                           🌍 CURRENT PUBLIC IP ADDRESS                       ║
           ╠═══════════════════════════════════════════════════════════════════════════════╣
           ║ {% if public_ip_result.status == 200 %}
-          ║ Public IP: {{ public_ip_result.content | trim }}
+          ║ Public IP: {{ public_ip_result.json | trim | default(public_ip_result.content | trim) }}
           ║ Detection Method: External API (ipify.org)
           ║ Status: ✅ Successfully detected
           ║ {% else %}
@@ -115,7 +115,7 @@
           ╠═══════════════════════════════════════════════════════════════════════════════╣
           ║ OPNsense Host: {{ opnsense_host }}
           ║ {% if public_ip_result.status == 200 %}
-          ║ Current Public IP: {{ public_ip_result.content | trim }}
+          ║ Current Public IP: {{ public_ip_result.json | trim | default(public_ip_result.content | trim) }}
           ║ {% else %}
           ║ Public IP Status: ❌ Unable to determine
           ║ {% endif %}
