@@ -9,8 +9,6 @@
     opnsense_api_key: "{{ opnsense_api_key | default('YOUR_OPNSENSE_API_KEY') }}"
     opnsense_api_secret: "{{ opnsense_api_secret | default('YOUR_OPNSENSE_API_SECRET') }}"
     opnsense_verify_ssl: "{{ opnsense_verify_ssl | default(false) }}"
-    operation: "{{ operation | default('list') }}"
-    service_name: "{{ service_name | default('') }}"
   
   pre_tasks:
     - name: Validate OPNsense connectivity
@@ -57,7 +55,7 @@
           sort: {}
           searchPhrase: ""
       register: service_list
-      when: operation == 'list'
+      when: (operation | default('list')) == 'list'
     
     - name: Display service list with beautiful formatting
       debug:
@@ -76,7 +74,7 @@
           ║ ❌ Failed to retrieve service list
           ║ {% endif %}
           ╚═══════════════════════════════════════════════════════════════════════════════╝
-      when: operation == 'list'
+      when: (operation | default('list')) == 'list'
     
     - name: Start service
       uri:
@@ -88,9 +86,9 @@
         validate_certs: "{{ opnsense_verify_ssl }}"
         body_format: json
         body:
-          service: "{{ service_name }}"
+          service: "{{ service_name | default('') }}"
       register: start_result
-      when: operation == 'start' and service_name != ''
+      when: (operation | default('list')) == 'start' and (service_name | default('')) != ''
     
     - name: Display start result with beautiful formatting
       debug:
@@ -98,14 +96,14 @@
           ╔═══════════════════════════════════════════════════════════════════════════════╗
           ║                          🚀 SERVICE START RESULT                             ║
           ╠═══════════════════════════════════════════════════════════════════════════════╣
-          ║ Service: {{ service_name }}
+          ║ Service: {{ service_name | default('') }}
           ║ Status: {{ '✅ Started' if start_result.status == 200 else '❌ Failed' }}
           ║ {% if start_result.status != 200 %}
           ║ Error: {{ start_result.msg }}
           ║ {% endif %}
           ║ Timestamp: {{ ansible_date_time.iso8601 }}
           ╚═══════════════════════════════════════════════════════════════════════════════╝
-      when: operation == 'start' and service_name != ''
+      when: (operation | default('list')) == 'start' and (service_name | default('')) != ''
     
     - name: Stop service
       uri:
@@ -117,9 +115,9 @@
         validate_certs: "{{ opnsense_verify_ssl }}"
         body_format: json
         body:
-          service: "{{ service_name }}"
+          service: "{{ service_name | default('') }}"
       register: stop_result
-      when: operation == 'stop' and service_name != ''
+      when: (operation | default('list')) == 'stop' and (service_name | default('')) != ''
     
     - name: Display stop result with beautiful formatting
       debug:
@@ -127,14 +125,14 @@
           ╔═══════════════════════════════════════════════════════════════════════════════╗
           ║                           🛑 SERVICE STOP RESULT                             ║
           ╠═══════════════════════════════════════════════════════════════════════════════╣
-          ║ Service: {{ service_name }}
+          ║ Service: {{ service_name | default('') }}
           ║ Status: {{ '✅ Stopped' if stop_result.status == 200 else '❌ Failed' }}
           ║ {% if stop_result.status != 200 %}
           ║ Error: {{ stop_result.msg }}
           ║ {% endif %}
           ║ Timestamp: {{ ansible_date_time.iso8601 }}
           ╚═══════════════════════════════════════════════════════════════════════════════╝
-      when: operation == 'stop' and service_name != ''
+      when: (operation | default('list')) == 'stop' and (service_name | default('')) != ''
     
     - name: Restart service
       uri:
@@ -146,9 +144,9 @@
         validate_certs: "{{ opnsense_verify_ssl }}"
         body_format: json
         body:
-          service: "{{ service_name }}"
+          service: "{{ service_name | default('') }}"
       register: restart_result
-      when: operation == 'restart' and service_name != ''
+      when: (operation | default('list')) == 'restart' and (service_name | default('')) != ''
     
     - name: Display restart result with beautiful formatting
       debug:
@@ -156,14 +154,14 @@
           ╔═══════════════════════════════════════════════════════════════════════════════╗
           ║                         🔄 SERVICE RESTART RESULT                            ║
           ╠═══════════════════════════════════════════════════════════════════════════════╣
-          ║ Service: {{ service_name }}
+          ║ Service: {{ service_name | default('') }}
           ║ Status: {{ '✅ Restarted' if restart_result.status == 200 else '❌ Failed' }}
           ║ {% if restart_result.status != 200 %}
           ║ Error: {{ restart_result.msg }}
           ║ {% endif %}
           ║ Timestamp: {{ ansible_date_time.iso8601 }}
           ╚═══════════════════════════════════════════════════════════════════════════════╝
-      when: operation == 'restart' and service_name != ''
+      when: (operation | default('list')) == 'restart' and (service_name | default('')) != ''
 
   post_tasks:
     - name: Display beautiful summary
@@ -174,7 +172,7 @@
           ╠═══════════════════════════════════════════════════════════════════════════════╣
           ║ Operation: {{ operation }}
           ║ {% if service_name != '' %}
-          ║ Service: {{ service_name }}
+          ║ Service: {{ service_name | default('') }}
           ║ {% endif %}
           ║ Host: {{ opnsense_host }}
           ║ Status: {{ '✅ Success' if opnsense_connectivity.status == 200 else '❌ Failed' }}
