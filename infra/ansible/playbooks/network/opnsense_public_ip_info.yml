@@ -54,6 +54,11 @@
       failed_when: false
       when: opnsense_connectivity.status == 200
     
+    - name: Debug public IP result
+      debug:
+        var: public_ip_result
+      when: opnsense_connectivity.status == 200
+    
     - name: Get detailed IP information
       uri:
         url: "https://ipapi.co/{{ public_ip_result.content | trim }}/json/"
