@@ -8,6 +8,7 @@
     check_type: "{{ check_type | default('connectivity') }}"
     target_network: "{{ target_network | default('172.23.0.0/16') }}"
     target_hosts: "{{ target_hosts | default('172.23.5.1,172.23.7.10,172.23.7.20') }}"
+    target_host: "{{ target_host | default('172.23.5.1') }}"
   
   tasks:
     - name: Display network health check configuration
@@ -17,7 +18,7 @@
           ====================================
           Check Type: {{ check_type }}
           Target Network: {{ target_network }}
-          Target Hosts: {{ target_hosts }}
+          Target Host: {{ target_host }}
           Timestamp: {{ ansible_date_time.iso8601 }}
     
     - name: Ping connectivity test
@@ -25,6 +26,11 @@
         data: "Network Health Check - {{ ansible_date_time.iso8601 }}"
       when: check_type in ['connectivity', 'all']
       register: ping_result
+    
+    - name: Ping target host
+      command: ping -c 3 {{ target_host }}
+      register: target_ping_result
+      failed_when: false
     
     - name: Display ping results
       debug:
@@ -36,6 +42,20 @@
           Response: {{ ping_result.pong }}
           {% endif %}
       when: check_type in ['connectivity', 'all']
+    
+    - name: Display target host ping results
+      debug:
+        msg: |
+          🎯 Target Host Ping Results
+          ===========================
+          Target Host: {{ target_host }}
+          Exit Code: {{ target_ping_result.rc }}
+          {% if target_ping_result.rc == 0 %}
+          Status: ✅ Success - Host is reachable
+          {% else %}
+          Status: ❌ Failed - Host is not reachable
+          {% endif %}
+          Output: {{ target_ping_result.stdout_lines | default('No output') }}
     
     - name: Network interface status check
       debug:
