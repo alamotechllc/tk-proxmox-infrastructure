@@ -69,7 +69,7 @@
           ║ ❌ Failed to retrieve system information
           ║ {% endif %}
           ╚═══════════════════════════════════════════════════════════════════════════════╝
-      when: info_type in ['system', 'all']
+      when: (info_type | default('system')) in ['system', 'all']
     
     - name: Get firmware information
       uri:
