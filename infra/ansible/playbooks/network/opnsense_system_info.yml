@@ -143,7 +143,7 @@
           ╔═══════════════════════════════════════════════════════════════════════════════╗
           ║                    ✅ OPNsense SYSTEM INFORMATION COMPLETE                    ║
           ╠═══════════════════════════════════════════════════════════════════════════════╣
-          ║ Information Type: {{ info_type }}
+          ║ Information Type: {{ info_type | default('system') }}
           ║ Host: {{ opnsense_host }}
           ║ Status: {{ '✅ Success' if opnsense_connectivity.status == 200 else '❌ Failed' }}
           ║ Completion Time: {{ ansible_date_time.iso8601 }}
