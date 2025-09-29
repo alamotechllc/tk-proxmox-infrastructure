@@ -7,10 +7,10 @@
   hosts: localhost
   gather_facts: true
   
-         vars:
-           # Filter options
-           port_filter: "{{ port_filter | default('all') }}"  # all, active, inactive, access_only
-           output_format: "{{ output_format | default('beautiful') }}"  # beautiful, compact
+  vars:
+    # Filter options
+    port_filter: "{{ port_filter | default('all') }}"  # all, active, inactive, access_only
+    output_format: "{{ output_format | default('beautiful') }}"  # beautiful, compact
     
     # Switch-specific interface configurations
     switch_interface_configs:
