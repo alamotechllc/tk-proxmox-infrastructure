@@ -8,6 +8,9 @@
   gather_facts: true
   
   vars:
+    # Filter options
+    port_filter: "{{ port_filter | default('all') }}"  # all, active, inactive, access_only
+    
     # Switch-specific interface configurations
     switch_interface_configs:
       tks-sw-arista-core-1:
@@ -70,54 +73,54 @@
           management_ports:
             - "Management1 (Protected)"
         port_descriptions:
-          "Ethernet1/1": "Available - Access Port"
-          "Ethernet1/2": "Available - Access Port"
-          "Ethernet1/3": "Available - Access Port"
-          "Ethernet1/4": "Available - Access Port"
-          "Ethernet1/5": "Available - Access Port"
-          "Ethernet1/6": "Available - Access Port"
-          "Ethernet1/7": "Available - Access Port"
-          "Ethernet1/8": "Available - Access Port"
-          "Ethernet1/9": "Available - Access Port"
-          "Ethernet1/10": "Available - Access Port"
-          "Ethernet1/11": "Available - Access Port"
-          "Ethernet1/12": "Available - Access Port"
-          "Ethernet1/13": "Available - Access Port"
-          "Ethernet1/14": "Available - Access Port"
-          "Ethernet1/15": "Available - Access Port"
-          "Ethernet1/16": "Available - Access Port"
-          "Ethernet1/17": "Available - Access Port"
-          "Ethernet1/18": "Available - Access Port"
-          "Ethernet1/19": "Available - Access Port"
-          "Ethernet1/20": "Available - Access Port"
-          "Ethernet1/21": "Available - Access Port"
-          "Ethernet1/22": "Available - Access Port"
-          "Ethernet1/23": "Available - Access Port"
-          "Ethernet1/24": "Available - Access Port"
-          "Ethernet1/25": "Available - Access Port"
-          "Ethernet1/26": "Available - Access Port"
-          "Ethernet1/27": "Available - Access Port"
-          "Ethernet1/28": "Available - Access Port"
-          "Ethernet1/29": "Available - Access Port"
-          "Ethernet1/30": "Available - Access Port"
-          "Ethernet1/31": "Available - Access Port"
-          "Ethernet1/32": "Available - Access Port"
-          "Ethernet1/33": "Available - Access Port"
-          "Ethernet1/34": "Available - Access Port"
-          "Ethernet1/35": "Available - Access Port"
-          "Ethernet1/36": "Available - Access Port"
-          "Ethernet1/37": "Available - Access Port"
-          "Ethernet1/38": "Available - Access Port"
-          "Ethernet1/39": "Available - Access Port"
-          "Ethernet1/40": "Available - Access Port"
-          "Ethernet1/41": "Available - Access Port"
-          "Ethernet1/42": "Available - Access Port"
-          "Ethernet1/43": "Available - Access Port"
-          "Ethernet1/44": "Available - Access Port"
-          "Ethernet1/45": "Available - Access Port"
-          "Ethernet1/46": "Available - Access Port"
-          "Ethernet1/47": "Available - Access Port"
-          "Ethernet1/48": "Available - Access Port"
+          "Ethernet1/1": "Office Workstation - Active"
+          "Ethernet1/2": "Available - Inactive"
+          "Ethernet1/3": "Available - Inactive"
+          "Ethernet1/4": "Available - Inactive"
+          "Ethernet1/5": "Server Connection - Active"
+          "Ethernet1/6": "Available - Inactive"
+          "Ethernet1/7": "Available - Inactive"
+          "Ethernet1/8": "Available - Inactive"
+          "Ethernet1/9": "Available - Inactive"
+          "Ethernet1/10": "Available - Inactive"
+          "Ethernet1/11": "Available - Inactive"
+          "Ethernet1/12": "Available - Inactive"
+          "Ethernet1/13": "Available - Inactive"
+          "Ethernet1/14": "Available - Inactive"
+          "Ethernet1/15": "Available - Inactive"
+          "Ethernet1/16": "Available - Inactive"
+          "Ethernet1/17": "Available - Inactive"
+          "Ethernet1/18": "Available - Inactive"
+          "Ethernet1/19": "Available - Inactive"
+          "Ethernet1/20": "Available - Inactive"
+          "Ethernet1/21": "Available - Inactive"
+          "Ethernet1/22": "Available - Inactive"
+          "Ethernet1/23": "Available - Inactive"
+          "Ethernet1/24": "Available - Inactive"
+          "Ethernet1/25": "Available - Inactive"
+          "Ethernet1/26": "Available - Inactive"
+          "Ethernet1/27": "Available - Inactive"
+          "Ethernet1/28": "Available - Inactive"
+          "Ethernet1/29": "Available - Inactive"
+          "Ethernet1/30": "Available - Inactive"
+          "Ethernet1/31": "Available - Inactive"
+          "Ethernet1/32": "Available - Inactive"
+          "Ethernet1/33": "Available - Inactive"
+          "Ethernet1/34": "Available - Inactive"
+          "Ethernet1/35": "Available - Inactive"
+          "Ethernet1/36": "Available - Inactive"
+          "Ethernet1/37": "Available - Inactive"
+          "Ethernet1/38": "Available - Inactive"
+          "Ethernet1/39": "Available - Inactive"
+          "Ethernet1/40": "Available - Inactive"
+          "Ethernet1/41": "Available - Inactive"
+          "Ethernet1/42": "Available - Inactive"
+          "Ethernet1/43": "Available - Inactive"
+          "Ethernet1/44": "Available - Inactive"
+          "Ethernet1/45": "Available - Inactive"
+          "Ethernet1/46": "Available - Inactive"
+          "Ethernet1/47": "Available - Inactive"
+          "Ethernet1/48": "Available - Inactive"
 
       tks-sw-cis-nexus-1:
         name: "Cisco Nexus Access Switch (tks-sw-cis-nexus-1)"
@@ -226,13 +229,13 @@
           uplink_ports:
             - "GigabitEthernet0/8 (Uplink to Arista - Protected)"
         port_descriptions:
-          "GigabitEthernet0/1": "Office Workstation"
-          "GigabitEthernet0/2": "Mac Studio"
-          "GigabitEthernet0/3": "Office Communications"
-          "GigabitEthernet0/4": "Wireless Access Point"
-          "GigabitEthernet0/5": "Xbox Gaming Console"
-          "GigabitEthernet0/6": "Nintendo Switch"
-          "GigabitEthernet0/7": "Available - Access Port"
+          "GigabitEthernet0/1": "Office Workstation - Active"
+          "GigabitEthernet0/2": "Mac Studio - Active"
+          "GigabitEthernet0/3": "Office Communications - Active"
+          "GigabitEthernet0/4": "Wireless Access Point - Active"
+          "GigabitEthernet0/5": "Xbox Gaming Console - Active"
+          "GigabitEthernet0/6": "Nintendo Switch - Active"
+          "GigabitEthernet0/7": "Available - Inactive"
 
     # VLAN definitions for reference
     vlan_definitions:
@@ -249,6 +252,7 @@
         msg:
           - "=== SWITCH INTERFACE LISTING ==="
           - "Switch: {{ switch_name | default('NOT SELECTED') }}"
+          - "Filter: {{ port_filter | default('all') }}"
           - "================================"
 
     - name: Validate switch_name is provided
@@ -289,16 +293,60 @@
           - "Model: {{ switch_config.model }}"
           - "========================="
 
-    - name: Display available access ports
+    - name: Filter access ports by status
+      set_fact:
+        filtered_access_ports: >-
+          {{
+            switch_config.safe_ports.access_ports | selectattr('', 'defined') |
+            select('match', '.*') |
+            map('regex_replace', '^(.*)$', '\1') |
+            list
+          }}
+
+    - name: Display filtered access ports
       debug:
         msg: |
-          🔌 AVAILABLE ACCESS PORTS (Safe for VLAN Assignment)
-          ===================================================
+          🔌 ACCESS PORTS ({{ port_filter | upper }} FILTER)
+          ================================================
+          {% set active_count = 0 %}
+          {% set inactive_count = 0 %}
+          {% set displayed_count = 0 %}
+          
           {% for port in switch_config.safe_ports.access_ports %}
-          {{ loop.index }}. {{ port }} - {{ switch_config.port_descriptions.get(port, 'Available - Access Port') if switch_config.port_descriptions is defined else 'Available - Access Port' }}
+            {% set port_desc = switch_config.port_descriptions.get(port, 'Available - Access Port') if switch_config.port_descriptions is defined else 'Available - Access Port' %}
+            {% set is_active = 'Active' in port_desc %}
+            {% set is_inactive = 'Inactive' in port_desc %}
+            
+            {% if is_active %}
+              {% set active_count = active_count + 1 %}
+            {% elif is_inactive %}
+              {% set inactive_count = inactive_count + 1 %}
+            {% endif %}
+            
+            {% if port_filter == 'all' or 
+                  (port_filter == 'active' and is_active) or 
+                  (port_filter == 'inactive' and is_inactive) or 
+                  (port_filter == 'access_only') %}
+              {% set displayed_count = displayed_count + 1 %}
+          {{ displayed_count }}. {{ port }} - {{ port_desc }}
+            {% endif %}
           {% endfor %}
           
-          📝 Use these ports for VLAN assignment operations.
+          📊 SUMMARY:
+          - Total Access Ports: {{ switch_config.safe_ports.access_ports | length }}
+          - Active Ports: {{ active_count }}
+          - Inactive Ports: {{ inactive_count }}
+          - Displayed: {{ displayed_count }} ({{ port_filter }} filter)
+          
+          {% if port_filter == 'access_only' %}
+          📝 Showing only access ports (no trunk ports or LAGs)
+          {% elif port_filter == 'active' %}
+          📝 Showing only active ports (currently in use)
+          {% elif port_filter == 'inactive' %}
+          📝 Showing only inactive ports (available for assignment)
+          {% else %}
+          📝 Showing all access ports
+          {% endif %}
 
     - name: Display gaming zone ports (Cisco Nexus only)
       debug:
@@ -380,6 +428,12 @@
           - port_interface: Ethernet1/10 (choose from available ports above)
           - vlan_id: 3 (choose from VLAN list above)
           - port_desc: "User Workstation"
+          
+          Filter Options:
+          - port_filter: all (show all access ports)
+          - port_filter: active (show only active ports)
+          - port_filter: inactive (show only inactive ports)
+          - port_filter: access_only (show access ports, exclude trunk/LAG)
           
           Common Port Assignments:
           {% if switch_name == 'arista_core' %}
