@@ -170,8 +170,8 @@
           ╔═══════════════════════════════════════════════════════════════════════════════╗
           ║                      ✅ OPNsense SERVICE MANAGEMENT COMPLETE                 ║
           ╠═══════════════════════════════════════════════════════════════════════════════╣
-          ║ Operation: {{ operation }}
-          ║ {% if service_name != '' %}
+          ║ Operation: {{ operation | default('list') }}
+          ║ {% if (service_name | default('')) != '' %}
           ║ Service: {{ service_name | default('') }}
           ║ {% endif %}
           ║ Host: {{ opnsense_host }}
@@ -179,7 +179,7 @@
           ║ Completion Time: {{ ansible_date_time.iso8601 }}
           ╠═══════════════════════════════════════════════════════════════════════════════╣
           ║ 💡 Next Steps:                                                              ║
-          ║   {% if operation == 'list' %}
+          ║   {% if (operation | default('list')) == 'list' %}
           ║   📋 Review service list above for status and configuration                  ║
           ║   {% else %}
           ║   🔍 Verify service status in OPNsense web interface                        ║
