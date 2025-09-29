@@ -7,9 +7,10 @@
   hosts: localhost
   gather_facts: true
   
-  vars:
-    # Filter options
-    port_filter: "{{ port_filter | default('all') }}"  # all, active, inactive, access_only
+         vars:
+           # Filter options
+           port_filter: "{{ port_filter | default('all') }}"  # all, active, inactive, access_only
+           output_format: "{{ output_format | default('beautiful') }}"  # beautiful, compact
     
     # Switch-specific interface configurations
     switch_interface_configs:
@@ -284,7 +285,7 @@
         switch_config: "{{ switch_interface_configs[switch_name] }}"
 
   tasks:
-    - name: Display switch information
+    - name: Display switch information with adaptive formatting
       debug:
         msg: |
           ╔═══════════════════════════════════════════════════════════════════════════════╗
@@ -296,6 +297,8 @@
           ║ Filter:      {{ port_filter | upper }}
           ║ Timestamp:   {{ ansible_date_time.iso8601 }}
           ╚═══════════════════════════════════════════════════════════════════════════════╝
+          
+          💡 TIP: For best formatting, expand your console/terminal window to full width
 
     - name: Filter access ports by status
       set_fact:
@@ -307,12 +310,18 @@
             list
           }}
 
-    - name: Display filtered access ports with beautiful formatting
+    - name: Display filtered access ports with adaptive formatting
       debug:
         msg: |
+          {% if output_format == 'beautiful' %}
           ╔═══════════════════════════════════════════════════════════════════════════════╗
           ║                    🔌 ACCESS PORTS ({{ port_filter | upper }} FILTER)                     ║
           ╠═══════════════════════════════════════════════════════════════════════════════╣
+          {% else %}
+          🔌 ACCESS PORTS ({{ port_filter | upper }} FILTER)
+          =================================================
+          {% endif %}
+          
           {% set active_count = 0 %}
           {% set inactive_count = 0 %}
           {% set displayed_count = 0 %}
@@ -333,10 +342,16 @@
                   (port_filter == 'inactive' and is_inactive) or 
                   (port_filter == 'access_only') %}
               {% set displayed_count = displayed_count + 1 %}
+              
+              {% if output_format == 'beautiful' %}
           ║ {{ '%2d'|format(displayed_count) }}. {{ '%-20s'|format(port) }} │ {{ '🟢' if is_active else '⚫' }} {{ '%-8s'|format('ACTIVE' if is_active else 'INACTIVE') }} │ {{ port_desc }} ║
+              {% else %}
+          {{ '%2d'|format(displayed_count) }}. {{ port }} - {{ '🟢' if is_active else '⚫' }} {{ 'ACTIVE' if is_active else 'INACTIVE' }} - {{ port_desc }}
+              {% endif %}
             {% endif %}
           {% endfor %}
           
+          {% if output_format == 'beautiful' %}
           ╠═══════════════════════════════════════════════════════════════════════════════╣
           ║                              📊 PORT SUMMARY                                 ║
           ╠═══════════════════════════════════════════════════════════════════════════════╣
@@ -350,6 +365,11 @@
             'Showing all access ports'
           }}
           ╚═══════════════════════════════════════════════════════════════════════════════╝
+          {% else %}
+          
+          📊 SUMMARY: {{ displayed_count }} displayed | {{ active_count }} active | {{ inactive_count }} inactive
+          Filter: {{ port_filter }}
+          {% endif %}
 
     - name: Display gaming zone ports (Cisco Nexus only)
       debug:
@@ -426,23 +446,27 @@
           ║ 📋 Use these VLAN IDs when assigning ports.                                 ║
           ╚═══════════════════════════════════════════════════════════════════════════════╝
 
-    - name: Display usage examples
-      debug:
-        msg: |
-          💡 USAGE EXAMPLES
-          ================
-          
-          For VLAN Assignment:
-          - switch_name: {{ switch_name }}
-          - port_interface: Ethernet1/10 (choose from available ports above)
-          - vlan_id: 3 (choose from VLAN list above)
-          - port_desc: "User Workstation"
-          
-          Filter Options:
-          - port_filter: all (show all access ports)
-          - port_filter: active (show only active ports)
-          - port_filter: inactive (show only inactive ports)
-          - port_filter: access_only (show access ports, exclude trunk/LAG)
+           - name: Display usage examples
+             debug:
+               msg: |
+                 💡 USAGE EXAMPLES
+                 ================
+                 
+                 For VLAN Assignment:
+                 - switch_name: {{ switch_name }}
+                 - port_interface: Ethernet1/10 (choose from available ports above)
+                 - vlan_id: 3 (choose from VLAN list above)
+                 - port_desc: "User Workstation"
+                 
+                 Filter Options:
+                 - port_filter: all (show all access ports)
+                 - port_filter: active (show only active ports)
+                 - port_filter: inactive (show only inactive ports)
+                 - port_filter: access_only (show access ports, exclude trunk/LAG)
+                 
+                 Format Options:
+                 - output_format: beautiful (wide terminal, Unicode tables)
+                 - output_format: compact (narrow terminal, simple text)
           
           Common Port Assignments:
           {% if switch_name == 'arista_core' %}
