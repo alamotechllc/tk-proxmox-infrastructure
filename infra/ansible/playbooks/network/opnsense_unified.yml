@@ -1,0 +1,379 @@
+---
+# OPNsense Unified Management
+# Consolidated template for all OPNsense operations including:
+# - System Information
+# - Service Management  
+# - Public IP Information
+# - Firmware Information
+# - Interface Information
+
+- name: "OPNsense Unified Management"
+  hosts: localhost
+  gather_facts: true
+  serial: 1
+  
+  vars:
+    opnsense_host: "{{ opnsense_host | default('172.23.5.1') }}"
+    opnsense_api_key: "{{ opnsense_api_key | default('YOUR_OPNSENSE_API_KEY') }}"
+    opnsense_api_secret: "{{ opnsense_api_secret | default('YOUR_OPNSENSE_API_SECRET') }}"
+    opnsense_verify_ssl: "{{ opnsense_verify_ssl | default(false) }}"
+  
+  pre_tasks:
+    - name: Validate OPNsense connectivity
+      uri:
+        url: "https://{{ opnsense_host }}/api/core/firmware/info"
+        method: GET
+        user: "{{ opnsense_api_key }}"
+        password: "{{ opnsense_api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ opnsense_verify_ssl }}"
+        timeout: 10
+      register: opnsense_connectivity
+      failed_when: false
+      ignore_errors: true
+    
+    - name: Set connectivity status
+      set_fact:
+        opnsense_connected: "{{ opnsense_connectivity.status == 200 }}"
+      when: opnsense_connectivity is defined
+    
+    - name: Set connectivity status default
+      set_fact:
+        opnsense_connected: false
+      when: opnsense_connectivity is not defined
+    
+    - name: Display connectivity status with beautiful formatting
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                       🔥 OPNsense CONNECTIVITY TEST                          ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ Host: {{ opnsense_host }}
+          ║ Status: {{ '✅ Connected' if opnsense_connected else '❌ Failed' }}
+          ║ {% if opnsense_connected and opnsense_connectivity.json is defined %}
+          ║ Product: {{ opnsense_connectivity.json.product_id }}
+          ║ Version: {{ opnsense_connectivity.json.product_version }}
+          ║ {% elif not opnsense_connected %}
+          ║ Error: {{ opnsense_connectivity.msg | default('Connection failed') }}
+          ║ {% endif %}
+          ║ Timestamp: {{ ansible_date_time.iso8601 }}
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
+
+  tasks:
+    # SYSTEM INFORMATION OPERATIONS
+    - name: Get system information
+      uri:
+        url: "https://{{ opnsense_host }}/api/core/firmware/info"
+        method: GET
+        user: "{{ opnsense_api_key }}"
+        password: "{{ opnsense_api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ opnsense_verify_ssl }}"
+      register: system_info
+      when: (operation | default('system_info')) in ['system_info', 'all']
+      failed_when: false
+      ignore_errors: true
+    
+    - name: Display system information with beautiful formatting
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                       💻 OPNsense SYSTEM INFORMATION                        ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ {% if system_info.json is defined %}
+          ║ Product: {{ system_info.json.product_id | default('Unknown') }}
+          ║ Version: {{ system_info.json.product_version | default('Unknown') }}
+          ║ Build: {{ system_info.json.product_name | default('Unknown') }}
+          ║ Architecture: {{ system_info.json.product_arch | default('Unknown') }}
+          ║ {% else %}
+          ║ ❌ Failed to retrieve system information
+          ║ {% endif %}
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
+      when: (operation | default('system_info')) in ['system_info', 'all']
+
+    # FIRMWARE INFORMATION OPERATIONS
+    - name: Get firmware information
+      uri:
+        url: "https://{{ opnsense_host }}/api/core/firmware/info"
+        method: GET
+        user: "{{ opnsense_api_key }}"
+        password: "{{ opnsense_api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ opnsense_verify_ssl }}"
+      register: firmware_info
+      when: (operation | default('system_info')) in ['firmware_info', 'all']
+      failed_when: false
+      ignore_errors: true
+    
+    - name: Display firmware information with beautiful formatting
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                      🔧 OPNsense FIRMWARE INFORMATION                        ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ {% if firmware_info.json is defined %}
+          ║ Product: {{ firmware_info.json.product_id }}
+          ║ Version: {{ firmware_info.json.product_version }}
+          ║ Build: {{ firmware_info.json.product_name }}
+          ║ Architecture: {{ firmware_info.json.product_arch }}
+          ║ {% else %}
+          ║ ❌ Failed to retrieve firmware information
+          ║ {% endif %}
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
+      when: (operation | default('system_info')) in ['firmware_info', 'all']
+
+    # INTERFACE INFORMATION OPERATIONS
+    - name: Get interface information
+      uri:
+        url: "https://{{ opnsense_host }}/api/core/interface/search"
+        method: POST
+        user: "{{ opnsense_api_key }}"
+        password: "{{ opnsense_api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ opnsense_verify_ssl }}"
+        body_format: json
+        body:
+          current: 1
+          rowCount: 100
+          sort: {}
+          searchPhrase: ""
+      register: interface_info
+      when: (operation | default('system_info')) in ['interface_info', 'all']
+      failed_when: false
+      ignore_errors: true
+    
+    - name: Display interface information with beautiful formatting
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                     🔌 OPNsense INTERFACE INFORMATION                       ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ {% if interface_info.json is defined and interface_info.json.rows is defined %}
+          ║ {% for interface in interface_info.json.rows %}
+          ║ Interface: {{ interface.if }}
+          ║ Description: {{ interface.descr | default('No description') }}
+          ║ Status: {{ interface.status | default('Unknown') }}
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ {% endfor %}
+          ║ {% else %}
+          ║ ❌ Failed to retrieve interface information
+          ║ {% endif %}
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
+      when: (operation | default('system_info')) in ['interface_info', 'all']
+
+    # SERVICE MANAGEMENT OPERATIONS
+    - name: Get service list
+      uri:
+        url: "https://{{ opnsense_host }}/api/core/service/search"
+        method: POST
+        user: "{{ opnsense_api_key }}"
+        password: "{{ opnsense_api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ opnsense_verify_ssl }}"
+        body_format: json
+        body:
+          current: 1
+          rowCount: 100
+          sort: {}
+          searchPhrase: ""
+      register: service_list
+      when: (operation | default('system_info')) in ['service_list', 'service_start', 'service_stop', 'service_restart', 'all']
+      failed_when: false
+      ignore_errors: true
+    
+    - name: Display service list with beautiful formatting
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                           🔥 OPNsense SERVICES LIST                           ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ {% if service_list.json is defined and service_list.json.rows is defined %}
+          ║ {% for service in service_list.json.rows %}
+          ║ Service: {{ service.name }}
+          ║ Status: {{ service.status | default('Unknown') }}
+          ║ Description: {{ service.description | default('No description') }}
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ {% endfor %}
+          ║ {% else %}
+          ║ ❌ Failed to retrieve service list
+          ║ {% endif %}
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
+      when: (operation | default('system_info')) == 'service_list'
+
+    - name: Start service
+      uri:
+        url: "https://{{ opnsense_host }}/api/core/service/start"
+        method: POST
+        user: "{{ opnsense_api_key }}"
+        password: "{{ opnsense_api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ opnsense_verify_ssl }}"
+        body_format: json
+        body:
+          service: "{{ service_name | default('') }}"
+      register: start_result
+      when: (operation | default('system_info')) == 'service_start' and (service_name | default('')) != ''
+      failed_when: false
+      ignore_errors: true
+    
+    - name: Display start result with beautiful formatting
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                          🚀 SERVICE START RESULT                             ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ Service: {{ service_name | default('') }}
+          ║ Status: {{ '✅ Started' if start_result.status == 200 else '❌ Failed' }}
+          ║ {% if start_result.status != 200 %}
+          ║ Error: {{ start_result.msg }}
+          ║ {% endif %}
+          ║ Timestamp: {{ ansible_date_time.iso8601 }}
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
+      when: (operation | default('system_info')) == 'service_start' and (service_name | default('')) != ''
+
+    - name: Stop service
+      uri:
+        url: "https://{{ opnsense_host }}/api/core/service/stop"
+        method: POST
+        user: "{{ opnsense_api_key }}"
+        password: "{{ opnsense_api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ opnsense_verify_ssl }}"
+        body_format: json
+        body:
+          service: "{{ service_name | default('') }}"
+      register: stop_result
+      when: (operation | default('system_info')) == 'service_stop' and (service_name | default('')) != ''
+      failed_when: false
+      ignore_errors: true
+    
+    - name: Display stop result with beautiful formatting
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                           🛑 SERVICE STOP RESULT                             ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ Service: {{ service_name | default('') }}
+          ║ Status: {{ '✅ Stopped' if stop_result.status == 200 else '❌ Failed' }}
+          ║ {% if stop_result.status != 200 %}
+          ║ Error: {{ stop_result.msg }}
+          ║ {% endif %}
+          ║ Timestamp: {{ ansible_date_time.iso8601 }}
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
+      when: (operation | default('system_info')) == 'service_stop' and (service_name | default('')) != ''
+
+    - name: Restart service
+      uri:
+        url: "https://{{ opnsense_host }}/api/core/service/restart"
+        method: POST
+        user: "{{ opnsense_api_key }}"
+        password: "{{ opnsense_api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ opnsense_verify_ssl }}"
+        body_format: json
+        body:
+          service: "{{ service_name | default('') }}"
+      register: restart_result
+      when: (operation | default('system_info')) == 'service_restart' and (service_name | default('')) != ''
+      failed_when: false
+      ignore_errors: true
+    
+    - name: Display restart result with beautiful formatting
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                        🔄 SERVICE RESTART RESULT                             ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ Service: {{ service_name | default('') }}
+          ║ Status: {{ '✅ Restarted' if restart_result.status == 200 else '❌ Failed' }}
+          ║ {% if restart_result.status != 200 %}
+          ║ Error: {{ restart_result.msg }}
+          ║ {% endif %}
+          ║ Timestamp: {{ ansible_date_time.iso8601 }}
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
+      when: (operation | default('system_info')) == 'service_restart' and (service_name | default('')) != ''
+
+    # PUBLIC IP INFORMATION OPERATIONS
+    - name: Get current public IP via external service
+      shell: curl -s --connect-timeout 10 https://api.ipify.org
+      register: public_ip_result
+      failed_when: false
+      when: (operation | default('system_info')) in ['public_ip', 'all']
+    
+    - name: Get detailed IP information
+      uri:
+        url: "https://ipapi.co/{{ public_ip_result.stdout | trim }}/json/"
+        method: GET
+        timeout: 10
+      register: ip_details
+      failed_when: false
+      when: (operation | default('system_info')) in ['public_ip', 'all'] and public_ip_result.rc == 0 and public_ip_result.stdout is defined
+
+    - name: Display current public IP with beautiful formatting
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                           🌍 CURRENT PUBLIC IP ADDRESS                       ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ {% if public_ip_result.rc == 0 %}
+          ║ Public IP: {{ public_ip_result.stdout | trim }}
+          ║ Detection Method: External API (ipify.org)
+          ║ Status: ✅ Successfully detected
+          ║ {% else %}
+          ║ Public IP: Unable to determine
+          ║ Status: ❌ Failed to detect external IP
+          ║ Error: {{ public_ip_result.stderr | default('Unknown error') }}
+          ║ {% endif %}
+          ║ Timestamp: {{ ansible_date_time.iso8601 }}
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
+      when: (operation | default('system_info')) in ['public_ip', 'all']
+
+    - name: Display detailed IP information with beautiful formatting
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                           📍 DETAILED IP INFORMATION                         ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ {% if ip_details.status == 200 and ip_details.json is defined %}
+          ║ IP Address: {{ ip_details.json.ip }}
+          ║ Country: {{ ip_details.json.country_name | default('Unknown') }}
+          ║ Region: {{ ip_details.json.region | default('Unknown') }}
+          ║ City: {{ ip_details.json.city | default('Unknown') }}
+          ║ ISP: {{ ip_details.json.org | default('Unknown') }}
+          ║ ASN: {{ ip_details.json.asn | default('Unknown') }}
+          ║ Timezone: {{ ip_details.json.timezone | default('Unknown') }}
+          ║ {% else %}
+          ║ ❌ Failed to retrieve detailed IP information
+          ║ {% if ip_details.status is defined %}
+          ║ Error: {{ ip_details.msg | default('Unknown error') }}
+          ║ {% endif %}
+          ║ {% endif %}
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
+      when: (operation | default('system_info')) in ['public_ip', 'all'] and public_ip_result.rc == 0
+
+  post_tasks:
+    - name: Display beautiful summary
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                    ✅ OPNsense UNIFIED MANAGEMENT COMPLETE                    ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ Operation: {{ operation | default('system_info') }}
+          ║ {% if (service_name | default('')) != '' %}
+          ║ Service: {{ service_name | default('') }}
+          ║ {% endif %}
+          ║ Host: {{ opnsense_host }}
+          ║ Status: {{ '✅ Success' if opnsense_connected else '❌ Failed' }}
+          ║ Completion Time: {{ ansible_date_time.iso8601 }}
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ 💡 Next Steps:                                                              ║
+          ║   {% if (operation | default('system_info')) in ['service_start', 'service_stop', 'service_restart'] %}
+          ║   🔍 Verify service status in OPNsense web interface                        ║
+          ║   {% elif (operation | default('system_info')) == 'public_ip' %}
+          ║   🌍 Monitor for IP changes if using dynamic ISP                            ║
+          ║   🔧 Configure DDNS if needed for dynamic IP management                     ║
+          ║   {% else %}
+          ║   📊 Review information above for monitoring and troubleshooting             ║
+          ║   🔍 Use OPNsense web interface for detailed configuration                   ║
+          ║   {% endif %}
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
