@@ -10,7 +10,6 @@
   vars:
     # Filter options
     port_filter: "{{ port_filter | default('all') }}"  # all, active, inactive, access_only
-    output_format: "{{ output_format | default('beautiful') }}"  # beautiful, compact
     
     # Switch-specific interface configurations
     switch_interface_configs:
@@ -313,7 +312,7 @@
     - name: Display filtered access ports with adaptive formatting
       debug:
         msg: |
-          {% if output_format == 'beautiful' %}
+          {% if (output_format | default('beautiful')) == 'beautiful' %}
           ╔═══════════════════════════════════════════════════════════════════════════════╗
           ║                    🔌 ACCESS PORTS ({{ port_filter | upper }} FILTER)                     ║
           ╠═══════════════════════════════════════════════════════════════════════════════╣
@@ -343,7 +342,7 @@
                   (port_filter == 'access_only') %}
               {% set displayed_count = displayed_count + 1 %}
               
-              {% if output_format == 'beautiful' %}
+              {% if (output_format | default('beautiful')) == 'beautiful' %}
           ║ {{ '%2d'|format(displayed_count) }}. {{ '%-20s'|format(port) }} │ {{ '🟢' if is_active else '⚫' }} {{ '%-8s'|format('ACTIVE' if is_active else 'INACTIVE') }} │ {{ port_desc }} ║
               {% else %}
           {{ '%2d'|format(displayed_count) }}. {{ port }} - {{ '🟢' if is_active else '⚫' }} {{ 'ACTIVE' if is_active else 'INACTIVE' }} - {{ port_desc }}
@@ -351,7 +350,7 @@
             {% endif %}
           {% endfor %}
           
-          {% if output_format == 'beautiful' %}
+          {% if (output_format | default('beautiful')) == 'beautiful' %}
           ╠═══════════════════════════════════════════════════════════════════════════════╣
           ║                              📊 PORT SUMMARY                                 ║
           ╠═══════════════════════════════════════════════════════════════════════════════╣
