@@ -1,0 +1,166 @@
+---
+# OPNsense Public IP Address Information
+# Displays current public IP addresses and WAN interface details
+# Useful for monitoring external connectivity and IP changes
+
+- name: "OPNsense Public IP Address Information"
+  hosts: localhost
+  gather_facts: true
+  serial: 1
+  
+  vars:
+    opnsense_host: "{{ opnsense_host | default('172.23.5.1') }}"
+    opnsense_api_key: "{{ opnsense_api_key | default('YOUR_OPNSENSE_API_KEY') }}"
+    opnsense_api_secret: "{{ opnsense_api_secret | default('YOUR_OPNSENSE_API_SECRET') }}"
+    opnsense_verify_ssl: "{{ opnsense_verify_ssl | default(false) }}"
+  
+  pre_tasks:
+    - name: Validate OPNsense connectivity
+      uri:
+        url: "https://{{ opnsense_host }}/api/core/firmware/info"
+        method: GET
+        user: "{{ opnsense_api_key }}"
+        password: "{{ opnsense_api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ opnsense_verify_ssl }}"
+      register: opnsense_connectivity
+      failed_when: false
+    
+    - name: Display connectivity status with beautiful formatting
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                       🔥 OPNsense CONNECTIVITY TEST                          ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ Host: {{ opnsense_host }}
+          ║ Status: {{ '✅ Connected' if opnsense_connectivity.status == 200 else '❌ Failed' }}
+          ║ {% if opnsense_connectivity.status == 200 %}
+          ║ Product: {{ opnsense_connectivity.json.product_id }}
+          ║ Version: {{ opnsense_connectivity.json.product_version }}
+          ║ {% else %}
+          ║ Error: {{ opnsense_connectivity.msg }}
+          ║ {% endif %}
+          ║ Timestamp: {{ ansible_date_time.iso8601 }}
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
+
+  tasks:
+    - name: Get interface information for WAN detection
+      uri:
+        url: "https://{{ opnsense_host }}/api/core/interfaces/search"
+        method: POST
+        user: "{{ opnsense_api_key }}"
+        password: "{{ opnsense_api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ opnsense_verify_ssl }}"
+        body_format: json
+        body:
+          current: 1
+          rowCount: 100
+          sort: {}
+          searchPhrase: ""
+      register: interface_list
+      when: opnsense_connectivity.status == 200
+    
+    - name: Get current public IP via external service
+      uri:
+        url: "https://api.ipify.org"
+        method: GET
+        timeout: 10
+      register: public_ip_result
+      failed_when: false
+      when: opnsense_connectivity.status == 200
+    
+    - name: Get detailed IP information
+      uri:
+        url: "https://ipapi.co/{{ public_ip_result.content | trim }}/json/"
+        method: GET
+        timeout: 10
+      register: ip_details
+      failed_when: false
+      when: public_ip_result.status == 200 and public_ip_result.content is defined
+    
+    - name: Display WAN interface information with beautiful formatting
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                          🌐 WAN INTERFACE INFORMATION                        ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ {% if interface_list.json is defined and interface_list.json.rows is defined %}
+          ║ {% for interface in interface_list.json.rows %}
+          ║ {% if 'wan' in interface.if | lower or 'pppoe' in interface.descr | lower %}
+          ║ Interface: {{ interface.if }}
+          ║ Description: {{ interface.descr | default('No description') }}
+          ║ Status: {{ interface.status | default('Unknown') }}
+          ║ IP Address: {{ interface.ipaddr | default('Not assigned') }}
+          ║ Gateway: {{ interface.gateway | default('Not set') }}
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ {% endif %}
+          ║ {% endfor %}
+          ║ {% else %}
+          ║ ❌ Failed to retrieve interface information
+          ║ {% endif %}
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
+      when: opnsense_connectivity.status == 200
+    
+    - name: Display current public IP with beautiful formatting
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                           🌍 CURRENT PUBLIC IP ADDRESS                       ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ {% if public_ip_result.status == 200 %}
+          ║ Public IP: {{ public_ip_result.content | trim }}
+          ║ Detection Method: External API (ipify.org)
+          ║ Status: ✅ Successfully detected
+          ║ {% else %}
+          ║ Public IP: Unable to determine
+          ║ Status: ❌ Failed to detect external IP
+          ║ Error: {{ public_ip_result.msg | default('Unknown error') }}
+          ║ {% endif %}
+          ║ Timestamp: {{ ansible_date_time.iso8601 }}
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
+      when: opnsense_connectivity.status == 200
+    
+    - name: Display detailed IP information with beautiful formatting
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                           📍 DETAILED IP INFORMATION                         ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ {% if ip_details.status == 200 and ip_details.json is defined %}
+          ║ IP Address: {{ ip_details.json.ip }}
+          ║ Country: {{ ip_details.json.country_name | default('Unknown') }}
+          ║ Region: {{ ip_details.json.region | default('Unknown') }}
+          ║ City: {{ ip_details.json.city | default('Unknown') }}
+          ║ ISP: {{ ip_details.json.org | default('Unknown') }}
+          ║ ASN: {{ ip_details.json.asn | default('Unknown') }}
+          ║ Timezone: {{ ip_details.json.timezone | default('Unknown') }}
+          ║ {% else %}
+          ║ ❌ Failed to retrieve detailed IP information
+          ║ {% if ip_details.status is defined %}
+          ║ Error: {{ ip_details.msg | default('Unknown error') }}
+          ║ {% endif %}
+          ║ {% endif %}
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
+      when: opnsense_connectivity.status == 200 and public_ip_result.status == 200
+
+  post_tasks:
+    - name: Display beautiful summary
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                    ✅ OPNsense PUBLIC IP INFORMATION COMPLETE                 ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ OPNsense Host: {{ opnsense_host }}
+          ║ {% if public_ip_result.status == 200 %}
+          ║ Current Public IP: {{ public_ip_result.content | trim }}
+          ║ {% else %}
+          ║ Public IP Status: ❌ Unable to determine
+          ║ {% endif %}
+          ║ Completion Time: {{ ansible_date_time.iso8601 }}
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ 💡 Next Steps:                                                              ║
+          ║   🌍 Monitor for IP changes if using dynamic ISP                            ║
+          ║   🔧 Configure DDNS if needed for dynamic IP management                     ║
+          ║   📊 Use this information for firewall rules and VPN configuration          ║
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
