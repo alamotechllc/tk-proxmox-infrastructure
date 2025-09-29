@@ -44,22 +44,6 @@
           ╚═══════════════════════════════════════════════════════════════════════════════╝
 
   tasks:
-    - name: Get interface information for WAN detection
-      uri:
-        url: "https://{{ opnsense_host }}/api/core/interfaces/search"
-        method: POST
-        user: "{{ opnsense_api_key }}"
-        password: "{{ opnsense_api_secret }}"
-        force_basic_auth: yes
-        validate_certs: "{{ opnsense_verify_ssl }}"
-        body_format: json
-        body:
-          current: 1
-          rowCount: 100
-          sort: {}
-          searchPhrase: ""
-      register: interface_list
-      when: opnsense_connectivity.status == 200
     
     - name: Get current public IP via external service
       uri:
@@ -79,28 +63,6 @@
       failed_when: false
       when: public_ip_result.status == 200 and public_ip_result.content is defined
     
-    - name: Display WAN interface information with beautiful formatting
-      debug:
-        msg: |
-          ╔═══════════════════════════════════════════════════════════════════════════════╗
-          ║                          🌐 WAN INTERFACE INFORMATION                        ║
-          ╠═══════════════════════════════════════════════════════════════════════════════╣
-          ║ {% if interface_list.json is defined and interface_list.json.rows is defined %}
-          ║ {% for interface in interface_list.json.rows %}
-          ║ {% if 'wan' in interface.if | lower or 'pppoe' in interface.descr | lower %}
-          ║ Interface: {{ interface.if }}
-          ║ Description: {{ interface.descr | default('No description') }}
-          ║ Status: {{ interface.status | default('Unknown') }}
-          ║ IP Address: {{ interface.ipaddr | default('Not assigned') }}
-          ║ Gateway: {{ interface.gateway | default('Not set') }}
-          ╠═══════════════════════════════════════════════════════════════════════════════╣
-          ║ {% endif %}
-          ║ {% endfor %}
-          ║ {% else %}
-          ║ ❌ Failed to retrieve interface information
-          ║ {% endif %}
-          ╚═══════════════════════════════════════════════════════════════════════════════╝
-      when: opnsense_connectivity.status == 200
     
     - name: Display current public IP with beautiful formatting
       debug:
