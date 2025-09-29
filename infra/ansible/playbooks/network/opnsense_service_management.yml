@@ -24,19 +24,22 @@
       register: opnsense_connectivity
       failed_when: false
     
-    - name: Display connectivity status
+    - name: Display connectivity status with beautiful formatting
       debug:
         msg: |
-          🔥 OPNsense Connectivity Test
-          =============================
-          Host: {{ opnsense_host }}
-          Status: {{ 'Connected' if opnsense_connectivity.status == 200 else 'Failed' }}
-          {% if opnsense_connectivity.status == 200 %}
-          Product: {{ opnsense_connectivity.json.product_id }}
-          Version: {{ opnsense_connectivity.json.product_version }}
-          {% else %}
-          Error: {{ opnsense_connectivity.msg }}
-          {% endif %}
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                       🔥 OPNsense CONNECTIVITY TEST                          ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ Host: {{ opnsense_host }}
+          ║ Status: {{ '✅ Connected' if opnsense_connectivity.status == 200 else '❌ Failed' }}
+          ║ {% if opnsense_connectivity.status == 200 %}
+          ║ Product: {{ opnsense_connectivity.json.product_id }}
+          ║ Version: {{ opnsense_connectivity.json.product_version }}
+          ║ {% else %}
+          ║ Error: {{ opnsense_connectivity.msg }}
+          ║ {% endif %}
+          ║ Timestamp: {{ ansible_date_time.iso8601 }}
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
 
   tasks:
     - name: Get service list
@@ -56,21 +59,23 @@
       register: service_list
       when: operation == 'list'
     
-    - name: Display service list
+    - name: Display service list with beautiful formatting
       debug:
         msg: |
-          🔥 OPNsense Services
-          ===================
-          {% if service_list.json is defined and service_list.json.rows is defined %}
-          {% for service in service_list.json.rows %}
-          Service: {{ service.name }}
-          Status: {{ service.status | default('Unknown') }}
-          Description: {{ service.description | default('No description') }}
-          ---
-          {% endfor %}
-          {% else %}
-          Failed to retrieve service list
-          {% endif %}
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                           🔥 OPNsense SERVICES LIST                           ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ {% if service_list.json is defined and service_list.json.rows is defined %}
+          ║ {% for service in service_list.json.rows %}
+          ║ Service: {{ service.name }}
+          ║ Status: {{ service.status | default('Unknown') }}
+          ║ Description: {{ service.description | default('No description') }}
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ {% endfor %}
+          ║ {% else %}
+          ║ ❌ Failed to retrieve service list
+          ║ {% endif %}
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
       when: operation == 'list'
     
     - name: Start service
@@ -87,16 +92,19 @@
       register: start_result
       when: operation == 'start' and service_name != ''
     
-    - name: Display start result
+    - name: Display start result with beautiful formatting
       debug:
         msg: |
-          🔥 Service Start Result
-          ======================
-          Service: {{ service_name }}
-          Status: {{ 'Started' if start_result.status == 200 else 'Failed' }}
-          {% if start_result.status != 200 %}
-          Error: {{ start_result.msg }}
-          {% endif %}
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                          🚀 SERVICE START RESULT                             ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ Service: {{ service_name }}
+          ║ Status: {{ '✅ Started' if start_result.status == 200 else '❌ Failed' }}
+          ║ {% if start_result.status != 200 %}
+          ║ Error: {{ start_result.msg }}
+          ║ {% endif %}
+          ║ Timestamp: {{ ansible_date_time.iso8601 }}
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
       when: operation == 'start' and service_name != ''
     
     - name: Stop service
@@ -113,16 +121,19 @@
       register: stop_result
       when: operation == 'stop' and service_name != ''
     
-    - name: Display stop result
+    - name: Display stop result with beautiful formatting
       debug:
         msg: |
-          🔥 Service Stop Result
-          =====================
-          Service: {{ service_name }}
-          Status: {{ 'Stopped' if stop_result.status == 200 else 'Failed' }}
-          {% if stop_result.status != 200 %}
-          Error: {{ stop_result.msg }}
-          {% endif %}
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                           🛑 SERVICE STOP RESULT                             ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ Service: {{ service_name }}
+          ║ Status: {{ '✅ Stopped' if stop_result.status == 200 else '❌ Failed' }}
+          ║ {% if stop_result.status != 200 %}
+          ║ Error: {{ stop_result.msg }}
+          ║ {% endif %}
+          ║ Timestamp: {{ ansible_date_time.iso8601 }}
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
       when: operation == 'stop' and service_name != ''
     
     - name: Restart service
@@ -139,27 +150,40 @@
       register: restart_result
       when: operation == 'restart' and service_name != ''
     
-    - name: Display restart result
+    - name: Display restart result with beautiful formatting
       debug:
         msg: |
-          🔥 Service Restart Result
-          =========================
-          Service: {{ service_name }}
-          Status: {{ 'Restarted' if restart_result.status == 200 else 'Failed' }}
-          {% if restart_result.status != 200 %}
-          Error: {{ restart_result.msg }}
-          {% endif %}
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                         🔄 SERVICE RESTART RESULT                            ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ Service: {{ service_name }}
+          ║ Status: {{ '✅ Restarted' if restart_result.status == 200 else '❌ Failed' }}
+          ║ {% if restart_result.status != 200 %}
+          ║ Error: {{ restart_result.msg }}
+          ║ {% endif %}
+          ║ Timestamp: {{ ansible_date_time.iso8601 }}
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
       when: operation == 'restart' and service_name != ''
 
   post_tasks:
-    - name: Summary
+    - name: Display beautiful summary
       debug:
         msg: |
-          🎯 OPNsense Service Management Complete
-          =====================================
-          Operation: {{ operation }}
-          {% if service_name != '' %}
-          Service: {{ service_name }}
-          {% endif %}
-          Host: {{ opnsense_host }}
-          Status: {{ 'Success' if opnsense_connectivity.status == 200 else 'Failed' }}
+          ╔═══════════════════════════════════════════════════════════════════════════════╗
+          ║                      ✅ OPNsense SERVICE MANAGEMENT COMPLETE                 ║
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ Operation: {{ operation }}
+          ║ {% if service_name != '' %}
+          ║ Service: {{ service_name }}
+          ║ {% endif %}
+          ║ Host: {{ opnsense_host }}
+          ║ Status: {{ '✅ Success' if opnsense_connectivity.status == 200 else '❌ Failed' }}
+          ║ Completion Time: {{ ansible_date_time.iso8601 }}
+          ╠═══════════════════════════════════════════════════════════════════════════════╣
+          ║ 💡 Next Steps:                                                              ║
+          ║   {% if operation == 'list' %}
+          ║   📋 Review service list above for status and configuration                  ║
+          ║   {% else %}
+          ║   🔍 Verify service status in OPNsense web interface                        ║
+          ║   {% endif %}
+          ╚═══════════════════════════════════════════════════════════════════════════════╝
